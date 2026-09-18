@@ -42,9 +42,9 @@ the algorithm; the experimenter does.
 
 ## In progress
 
-- Extended judge-calibration run with GEPA textual feedback and a 1500-call budget.
-- Shared-board monitoring and review with Claude; the completed GEPA comparison is committed
-  separately from the longer calibration run.
+- Shared-board monitoring with Claude. All current implementation and experiment reviews are
+  complete. The 1500-call feedback run tied on validation agreement and had lower validation
+  position consistency, so the selected score-only GEPA judge is unchanged.
 
 ## Later
 

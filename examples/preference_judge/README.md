@@ -139,7 +139,7 @@ attached no demonstrations.
 | MIPROv2, 3×3 | 0.531 | 0.656 | 0.83 | 4 demonstrations, instructions unchanged |
 | GEPA, score only, 400 calls | 0.531 | 0.562 | 0.71 | instructions rewritten: five spelled-out criteria plus worked examples from judge-train questions |
 | GEPA, `--gepa-feedback`, 400 calls | 0.510 | 0.521 | 0.77 | kept the seed: 3 new candidates received full-validation checks, each costing 96 calls |
-| GEPA, `--gepa-feedback`, 1500 calls | running | | | |
+| GEPA, `--gepa-feedback`, 1500 calls | 0.531 | 0.573 | 0.73 | instructions rewritten over 47 proposals, no demonstrations; ties the score-only judge on validation and loses the declared tie-break (validation consistency 0.833 vs 0.854), so the score-only judge stays selected |
 
 **Selection was on validation only.** MIPROv2 and score-only GEPA tie at 0.531, so a tie-break was
 declared before being applied: position consistency on the *validation* predictions. GEPA 0.854
