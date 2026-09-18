@@ -12,13 +12,15 @@ model = VLLM(model="llama-3.1-8b-instruct", base_url="http://127.0.0.1:8124/v1",
 result = optimize(
     problem="Classify an SMS message as ham or spam. Return exactly ham or spam.",
     model=model,
-    backend=DSPy(optimizer="MIPROv2", optimizer_kwargs={"auto": "light"}),
+    backend=DSPy(optimizer="GEPA", optimizer_kwargs={
+        "max_metric_calls": 400, "reflection_minibatch_size": 3,
+    }),
     train_data=train,            # Example(input, target) or {"input": ..., "target": ...}
     validation_data=validation,  # optional; 20% of train is held out if omitted
     test_data=test,              # optional; never shown to the optimiser
     metric=exact_match,          # metric(expected, predicted) -> float, the objective
     seed_prompt=None,            # defaults to the problem description
-    output_dir="runs/sms-mipro", # new or empty; a fresh runs/<Backend>-<time> dir if omitted
+    output_dir="runs/sms-gepa", # new or empty; a fresh runs/<Backend>-<time> dir if omitted
     trackers=[],                 # MLflowTracker(...), WandbTracker(...), ConsoleTracker()
 )
 result.prompt                        # readable instructions
@@ -26,6 +28,7 @@ result.scores["final"]["test"]       # {"score": ..., "n_examples": ...}; also "
 result.predict(["WIN A FREE PRIZE"]) # the exact native predictor that was scored
 ```
 
+The examples lead with GEPA. Other optimisers use the same interface.
 Swap `backend=` and nothing else changes (`import dspy` for the class-based forms):
 
 ```python
@@ -167,8 +170,8 @@ accuracy here does not reflect the natural spam rate. Default experiment: 10 tra
 validation and 20 test messages per class, seed 42.
 
 ```bash
-python examples/sms/unified.py --backend dspy --optimizer MIPROv2 \
-    --optimizer-kwargs '{"auto": null, "num_candidates": 3}' --compile-kwargs '{"num_trials": 3, "minibatch": false}' \
+python examples/sms/unified.py --backend dspy --optimizer GEPA \
+    --optimizer-kwargs '{"max_metric_calls": 400, "reflection_minibatch_size": 3}' \
     --model llama-3.1-8b-instruct --base-url http://127.0.0.1:8124/v1 \
     --train-per-class 10 --eval-per-class 20 --tracker mlflow --tracking-uri sqlite:///runs/mlflow.db
 python examples/sms/unified.py --backend textgrad --optimizer TextualGradientDescent --steps 3 --batch-size 4 \

@@ -12,6 +12,11 @@ examples, so adding a new one cannot break an existing one. Run them from the re
 | [custom_backend/](custom_backend/) | tiny inline sentiment task | exact match | a complete third optimiser backend in about thirty lines |
 | [preference_judge/](preference_judge/) | MT-bench human preference votes (CC-BY-4.0) | stage 1: agreement with human labels; stage 2: the optimised judge | calibrating an AI judge on human data before using it as a metric; question-level disjoint splits between the two stages |
 
+DSPy examples default to GEPA with an explicit metric-call budget. Select another native
+algorithm with `--optimizer` and its constructor options with `--optimizer-kwargs`; TextGrad
+remains available through `--backend textgrad`. The native SMS reference scripts show their
+original single-tool algorithms.
+
 ## Adding an example
 
 Make a folder, put the data and any task-specific metric in it, and call `optimize(...)` from a

@@ -24,6 +24,10 @@ from prompt_optimiser import VLLM, DSPy, TextGrad, exact_match, optimize  # noqa
 from prompt_optimiser.tracking import ConsoleTracker, MLflowTracker  # noqa: E402
 
 CONFIGS = {
+    "dspy-gepa": lambda: DSPy(
+        optimizer="GEPA",
+        optimizer_kwargs={"max_metric_calls": 400, "reflection_minibatch_size": 3},
+    ),
     "dspy-miprov2": lambda: DSPy(
         optimizer="MIPROv2",
         optimizer_kwargs={"auto": None, "num_candidates": 3, "max_errors": 1},

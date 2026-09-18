@@ -2,7 +2,12 @@
 
 Examples (servers as in docs/VLLM.md):
 
-  # DSPy, MIPROv2 with default native settings
+  # DSPy, GEPA (the example default)
+  python examples/sms/unified.py --backend dspy --optimizer GEPA \
+      --optimizer-kwargs '{"max_metric_calls": 400, "reflection_minibatch_size": 3}' \
+      --model llama-3.1-8b-instruct --base-url http://127.0.0.1:8124/v1
+
+  # DSPy, MIPROv2
   python examples/sms/unified.py --backend dspy --optimizer MIPROv2 \
       --optimizer-kwargs '{"auto": "light"}' \
       --model llama-3.1-8b-instruct --base-url http://127.0.0.1:8124/v1
@@ -41,12 +46,18 @@ from examples.sms.common import (  # noqa: E402
 )
 from prompt_optimiser import DSPy, TextGrad, optimize  # noqa: E402
 
+GEPA_DEFAULTS = {"max_metric_calls": 400, "reflection_minibatch_size": 3}
+
 
 def build_backend(args):
     if args.backend == "dspy":
+        optimizer = args.optimizer or "GEPA"
+        options = json.loads(args.optimizer_kwargs)
+        if not options and optimizer == "GEPA":
+            options = dict(GEPA_DEFAULTS)
         return DSPy(
-            optimizer=args.optimizer or "MIPROv2",
-            optimizer_kwargs=json.loads(args.optimizer_kwargs),
+            optimizer=optimizer,
+            optimizer_kwargs=options,
             compile_kwargs=json.loads(args.compile_kwargs),
             optimizer_model=optimizer_model(args),
         )
@@ -65,7 +76,7 @@ def main():
     args, (train, validation, test), metadata = setup(
         "unified",
         lambda parser: (
-            parser.add_argument("--optimizer", help="Native optimiser class name in the tool"),
+            parser.add_argument("--optimizer", help="Native class (default: GEPA or TextGrad TGD)"),
             parser.add_argument(
                 "--optimizer-kwargs", default="{}", help="JSON passed to the optimiser constructor"
             ),
