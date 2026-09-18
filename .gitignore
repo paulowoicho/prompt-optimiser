@@ -1,0 +1,18 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+dist/
+*.egg-info/
+runs/
+mlruns/
+wandb/
+.env
+logs/
+.venv-vllm/
+
+# agent coordination records, not part of the library
+collaboration/
+COLLABORATION.md
+BOARD.md

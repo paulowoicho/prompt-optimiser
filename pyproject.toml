@@ -1,0 +1,32 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "prompt-optimiser"
+version = "0.1.0"
+description = "A common training and evaluation interface for prompt optimizers"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+llm = ["litellm>=1.60,<2"]
+dspy = ["dspy>=3.0,<4", "optuna>=4,<5"]
+textgrad = ["textgrad>=0.1.8,<0.2"]
+mlflow = ["mlflow-skinny>=2.17,<4"]
+wandb = ["wandb>=0.19.10,<1"]
+dev = ["pytest>=8,<10", "ruff>=0.11,<1"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["prompt_optimiser"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
