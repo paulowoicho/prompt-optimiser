@@ -41,18 +41,19 @@ Nothing was added to the library for this. The judge, data and runner are three 
 ## Run
 
 ```bash
+# GEPA (the default): reflective prompt evolution, budgeted by metric calls
 python examples/career_coaching/run.py \
     --model llama-3.1-8b-instruct --base-url http://127.0.0.1:8124/v1 \
     --judge-model qwen2.5-72b-instruct-awq --judge-base-url http://127.0.0.1:8123/v1 \
-    --backend dspy --optimizer MIPROv2 \
+    --backend dspy --optimizer GEPA \
+    --optimizer-kwargs '{"max_metric_calls": 120, "reflection_minibatch_size": 3}' \
+    --tracker mlflow --output runs/coaching/dspy-gepa
+
+# MIPROv2 for comparison
+python examples/career_coaching/run.py ... --backend dspy --optimizer MIPROv2 \
     --optimizer-kwargs '{"auto": null, "num_candidates": 3, "max_errors": 1}' \
     --compile-kwargs '{"num_trials": 3, "minibatch": false}' \
-    --tracker mlflow --output runs/coaching/dspy-miprov2
-
-# GEPA: reflective prompt evolution, budgeted by metric calls
-python examples/career_coaching/run.py ... --backend dspy --optimizer GEPA \
-    --optimizer-kwargs '{"max_metric_calls": 120, "reflection_minibatch_size": 3}' \
-    --output runs/coaching/dspy-gepa
+    --output runs/coaching/dspy-miprov2
 
 python examples/career_coaching/run.py ... --backend textgrad --steps 3 --batch-size 4 \
     --output runs/coaching/textgrad-tgd

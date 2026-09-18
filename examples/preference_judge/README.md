@@ -38,13 +38,25 @@ The judge is an ordinary prompt: JSON `{question, response_a, response_b}` in, o
 `A_BETTER` / `B_BETTER` / `TIE` out, metric = agreement with the human label. Any optimiser works.
 
 ```bash
+# GEPA (the default): evolves the instructions by reflecting on per-example feedback.
 python examples/preference_judge/stage1_judge.py \
     --model qwen2.5-72b-instruct-awq --base-url http://127.0.0.1:8123/v1 \
-    --backend dspy --optimizer MIPROv2 \
+    --backend dspy --optimizer GEPA \
+    --optimizer-kwargs '{"max_metric_calls": 400, "reflection_minibatch_size": 3, "num_threads": 4}' \
+    --tracker mlflow --output runs/preference_judge/stage1-gepa
+
+# Add --gepa-feedback with a fresh --output directory to compare textual feedback.
+
+# MIPROv2 for comparison: searches instructions and demonstrations by Bayesian optimisation.
+python examples/preference_judge/stage1_judge.py ... --optimizer MIPROv2 \
     --optimizer-kwargs '{"auto": null, "num_candidates": 3, "max_errors": 1}' \
-    --compile-kwargs '{"num_trials": 3, "minibatch": false}' \
-    --tracker mlflow --output runs/preference_judge/stage1-miprov2
+    --compile-kwargs '{"num_trials": 3, "minibatch": false}' --output runs/preference_judge/stage1-miprov2
 ```
+
+The GEPA feedback metric lives in the example (`gepa_feedback_metric`) and reaches GEPA through
+`DSPy(optimizer_kwargs={"metric": ...})`; the harness still selects and reports with plain
+agreement. That is the pass-through the adapter is built for: the experimenter decides what the
+optimiser sees.
 
 `report.json` in the run directory gives baseline and optimised agreement with humans on
 judge-test, plus position consistency (does the judge flip its answer when A and B swap) and the
@@ -63,14 +75,16 @@ output (a non-label) scores a tie and is counted in `judge_counts.json`; pass
 
 ```bash
 python examples/preference_judge/stage2_responses.py \
-    --judge-run runs/preference_judge/stage1-miprov2 --judge best \
+    --judge-run runs/preference_judge/stage1-gepa --judge best \
     --judge-model qwen2.5-72b-instruct-awq --judge-base-url http://127.0.0.1:8123/v1 \
     --model llama-3.1-8b-instruct --base-url http://127.0.0.1:8124/v1 \
-    --backend dspy --optimizer MIPROv2 \
-    --optimizer-kwargs '{"auto": null, "num_candidates": 3, "max_errors": 1}' \
-    --compile-kwargs '{"num_trials": 3, "minibatch": false}' \
-    --tracker mlflow --output runs/preference_judge/stage2-miprov2-best-judge
+    --backend dspy --optimizer GEPA \
+    --optimizer-kwargs '{"max_metric_calls": 400, "reflection_minibatch_size": 3, "num_threads": 4}' \
+    --tracker mlflow --output runs/preference_judge/stage2-gepa-best-judge
 ```
+
+Swap `--optimizer MIPROv2` (with its own kwargs) or `--backend textgrad` to compare optimisers on
+the same judge and questions.
 
 ## Results
 
@@ -114,6 +128,27 @@ questions. An independent-row binomial standard error would understate uncertain
 observed gains on this split, not an established general improvement; repeated seeds and
 question-level uncertainty estimates are needed for that claim.
 
+### Stage 1 with GEPA (the example default)
+
+Same splits and rows. GEPA rewrites the instructions by reflecting on per-example results; it
+attached no demonstrations.
+
+| Judge | Validation | Test | Test position consistency | What changed |
+|---|---|---|---|---|
+| seed | 0.510 | 0.521 | 0.77 | |
+| MIPROv2, 3×3 | 0.531 | 0.656 | 0.83 | 4 demonstrations, instructions unchanged |
+| GEPA, score only, 400 calls | 0.531 | 0.562 | 0.71 | instructions rewritten: five spelled-out criteria plus worked examples from judge-train questions |
+| GEPA, `--gepa-feedback`, 400 calls | 0.510 | 0.521 | 0.77 | kept the seed: 3 new candidates received full-validation checks, each costing 96 calls |
+| GEPA, `--gepa-feedback`, 1500 calls | running | | | |
+
+**Selection was on validation only.** MIPROv2 and score-only GEPA tie at 0.531, so a tie-break was
+declared before being applied: position consistency on the *validation* predictions. GEPA 0.854
+with no invalid outputs, MIPROv2 0.708 with three. The GEPA judge therefore goes to stage 2. Its
+test agreement is lower than MIPROv2's; that is reported, not acted on, because acting on it
+would make judge-test a selection split. The feedback variant's budget note matters: GEPA scores
+every accepted candidate on the whole validation set, so 400 calls allows few full-validation checks; the
+budget is the experimenter's knob, not a verdict on textual feedback.
+
 ### Stage 2: Llama-3.1-8B response prompt, DSPy MIPROv2 (3 candidates, 3 trials)
 
 Tie-adjusted preference against the seed prompt's own answers on 16 / 8 / 16 held-out questions
@@ -141,6 +176,33 @@ Both judges score the program selected by the trained judge above the seed and t
 program below it on these sixteen test questions. These small observed gaps do not establish
 that judge training improves response optimisation generally, and neither scorer supplies
 human preference labels for the new responses.
+
+### Stage 2 with GEPA (the example default), judge from the GEPA stage 1
+
+GEPA as the response optimiser, 400 metric calls, reflection minibatch 3, same incumbents.
+
+| Judge used as the metric | Final val / test (own judge) | Selected program |
+|---|---|---|
+| calibrated (`stage1-gepa/best`) | 0.750 / **0.656** | rewritten instructions, no demonstrations |
+| uncalibrated (`stage1-gepa/baseline`) | 0.688 / **0.547** | rewritten instructions, no demonstrations |
+
+Cross-scoring both selected programs' saved test answers with both judges
+(`runs/preference_judge/stage2-gepa-crosscheck.json`), independently rechecked from the saved
+responses; per-question scores, verdicts and artifact hashes are in
+`runs/preference_judge/stage2-gepa-crosscheck-reviewed.json`:
+
+| Selected by | Scored by calibrated judge | Scored by uncalibrated judge |
+|---|---|---|
+| calibrated judge | 0.656 | 0.672 |
+| uncalibrated judge | 0.594 | 0.547 |
+
+Both judges assign higher mean scores to the program selected using the trained judge in this
+GEPA comparison. The trained judge differs from the one used in the MIPROv2 comparison, so
+these runs do not isolate the effect of the response optimiser. The sample-size and lack-of-human-
+evaluation caveats above still apply. One more to read in the artifacts: both GEPA prompts open with a
+list of task domains taken from the training questions ("designing a seismically resilient
+bridge", "highest common ancestor of two nodes"). They still improved answers on the disjoint
+test questions, but a prompt that enumerates its training set is a prompt to watch as sets grow.
 
 **Attempt 1 measured formatting, not prompts.** The first stage-2 runs generated the incumbent
 answers with a plain chat call while DSPy renders every candidate, the unchanged seed included,

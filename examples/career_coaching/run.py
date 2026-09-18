@@ -10,13 +10,12 @@ far the baseline is from 0.5 is the size of that formatting and noise effect.
     python examples/career_coaching/run.py \
         --model llama-3.1-8b-instruct --base-url http://127.0.0.1:8124/v1 \
         --judge-model qwen2.5-72b-instruct-awq --judge-base-url http://127.0.0.1:8123/v1 \
-        --backend dspy --optimizer MIPROv2 \
-        --optimizer-kwargs '{"auto": null, "num_candidates": 3, "max_errors": 1}' \
-        --compile-kwargs '{"num_trials": 3, "minibatch": false}' \
-        --tracker mlflow --tracking-uri sqlite:///runs/mlflow.db --output runs/coaching/dspy-miprov2
+        --backend dspy --optimizer GEPA \
+        --optimizer-kwargs '{"max_metric_calls": 120, "reflection_minibatch_size": 3}' \
+        --tracker mlflow --tracking-uri sqlite:///runs/mlflow.db --output runs/coaching/dspy-gepa
 
-Swap --backend textgrad --steps 3 --batch-size 4 to use TextGrad. Judge with a different, larger
-model than the one being optimised, or you are measuring self-preference.
+GEPA is the default; swap --optimizer MIPROv2 (with its kwargs) or --backend textgrad. Judge
+with a different, larger model than the one being optimised, or you are measuring self-preference.
 """
 
 from __future__ import annotations
@@ -38,6 +37,10 @@ from examples.career_coaching.judge import (  # noqa: E402
 from examples.career_coaching.loss import make_coaching_loss  # noqa: E402
 from prompt_optimiser import VLLM, DSPy, Example, TextGrad, optimize  # noqa: E402
 from prompt_optimiser.tracking import ConsoleTracker, MLflowTracker, WandbTracker  # noqa: E402
+
+# GEPA is the example default: reflective instruction evolution, budgeted by metric calls.
+# Any other DSPy teleprompter is one --optimizer flag away, e.g. --optimizer MIPROv2.
+GEPA_DEFAULTS = {"max_metric_calls": 400, "reflection_minibatch_size": 3, "num_threads": 4}
 
 PROBLEM = "You are a career coach. Give a helpful response to the person's career question."
 
@@ -85,9 +88,13 @@ class JudgeArtifacts:
 
 def build_backend(args):
     if args.backend == "dspy":
+        optimizer = args.optimizer or "GEPA"
+        optimizer_kwargs = json.loads(args.optimizer_kwargs)
+        if optimizer == "GEPA" and not optimizer_kwargs:
+            optimizer_kwargs = dict(GEPA_DEFAULTS)  # a budget is required; only for GEPA
         return DSPy(
-            optimizer=args.optimizer or "MIPROv2",
-            optimizer_kwargs=json.loads(args.optimizer_kwargs),
+            optimizer=optimizer,
+            optimizer_kwargs=optimizer_kwargs,
             compile_kwargs=json.loads(args.compile_kwargs),
         )
     return TextGrad(

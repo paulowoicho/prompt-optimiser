@@ -187,10 +187,12 @@ without the harness.
 Same fixed splits (10 train, 20 validation, 20 test per class, seed 42), exact match, proposer
 or critic is the target model unless stated. Selection is on validation; the baseline is kept
 on ties. Run directories are under `runs/live-*` (Claude) and `runs/review-8b` (Codex); each
-holds per-row predictions, native state and the MLflow run.
+holds per-row predictions, native state and the MLflow run. The GEPA SMS run is at
+`runs/sms/gepa-8b-20260918`; its test gain is one example out of forty, on one fixed split.
 
 | Model | Tool | Configuration | Baseline val / test | Final val / test | Outcome |
 |---|---|---|---|---|---|
+| Llama-3.1-8B | DSPy | GEPA, 400 metric-call budget, reflection minibatch 3 | 0.900 / 0.875 | 0.925 / 0.900 | one additional correct test answer |
 | Llama-3.1-8B | DSPy | MIPROv2, 3 candidates, 3 trials, native proposer and demonstration defaults | 0.900 / 0.875 | 0.950 / 0.925 | improved |
 | Llama-3.1-8B | DSPy | MIPROv2, small zero-shot preset: no demonstrations, data-aware proposer only, whole train set as data summary | 0.900 / 0.875 | 0.900 / 0.875 | kept seed |
 | Llama-3.1-8B | DSPy | COPRO, breadth 3, depth 2 | 0.900 / 0.875 | 0.900 / 0.875 | kept seed; candidate 0.825 |

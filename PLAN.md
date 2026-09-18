@@ -35,9 +35,16 @@ the algorithm; the experimenter does.
   inherits stage-1 splits and judge settings; regression tests cover native rendering,
   demonstration retention and reports uploaded before trackers close.
 
+- GEPA leads the examples; the core remains optimiser-agnostic. SMS GEPA and both
+  preference-judge stages ran on local vLLM models, with results and limitations documented.
+  Score-only GEPA beat the 400-call feedback variant on judge-validation; the two stage-2
+  response runs and their cross-scoring were reviewed against saved artifacts.
+
 ## In progress
 
-- No implementation or review items remain at this checkpoint.
+- Extended judge-calibration run with GEPA textual feedback and a 1500-call budget.
+- Shared-board monitoring and review with Claude; the completed GEPA comparison is committed
+  separately from the longer calibration run.
 
 ## Later
 
