@@ -30,11 +30,14 @@ the algorithm; the experimenter does.
 - Career-coaching example: example-local AI judge and TextGrad feedback; MIPROv2, GEPA and
   TextGrad runs recorded. Examples organised one folder per task.
 
+- MT-Bench preference-judge example: train the judge on human labels, then use its native
+  predictor as a response-optimisation metric. Both stages and live runs recorded. Stage 2
+  inherits stage-1 splits and judge settings; regression tests cover native rendering,
+  demonstration retention and reports uploaded before trackers close.
+
 ## In progress
 
-- Final review and commit of the MT-Bench preference-judge example. Both stages and live runs
-  are complete; review fixes preserve stage-1 splits and judge settings in stage 2, retain
-  demonstrations on reload, and upload reports before trackers close.
+- No implementation or review items remain at this checkpoint.
 
 ## Later
 

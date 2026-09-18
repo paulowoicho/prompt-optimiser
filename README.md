@@ -142,7 +142,8 @@ TextGrad adapters in [prompt_optimiser/native/](prompt_optimiser/native/) are th
 
 One folder per task under [examples/](examples/README.md): `sms/` (labels, exact match, the sweep),
 `career_coaching/` (open-ended answers scored by a pairwise AI judge written inside the example),
-`custom_backend/` (a third optimiser in thirty lines). Each is self-contained.
+`custom_backend/` (a third optimiser in thirty lines), and `preference_judge/` (train a judge
+on MT-Bench human votes, then use it as the metric). Each is self-contained.
 
 ### Your own metric
 
