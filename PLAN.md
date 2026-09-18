@@ -22,12 +22,14 @@ the algorithm; the experimenter does.
 - Native adapters take the optimiser, program, loss and kwargs from the experimenter;
   one adapter per tool (`DSPy`, `TextGrad`), no presets.
 - README rewritten around the generic adapters, with the SMS results table.
-- Seven optimiser configurations run on the 8B and 72B models; both agents cross-reviewed
-  each other's code and docs.
+- Nine optimiser runs on the 8B and 72B models plus the earlier 1.5B run, tabulated in the
+  README; both agents cross-reviewed each other's code and docs.
+- A third backend written as a thirty-line example (`examples/custom_backend.py`), under test.
+- First commit `e450ab3` (2026-09-18).
 
 ## In progress
 
-- Remaining 72B TextGrad run; final results table.
+- Nothing at this checkpoint. Next experiments are the user's call.
 
 ## Later
 

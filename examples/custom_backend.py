@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -21,11 +22,14 @@ from prompt_optimiser import VLLM, Event, FitResult, Prompt, optimize  # noqa: E
 from prompt_optimiser.experiment import measure  # noqa: E402
 
 
+@dataclass
 class RewriteSearch:
-    """Try ``rewrites`` model-written variants of the seed prompt; select on validation."""
+    """Try ``rewrites`` model-written variants of the seed prompt; select on validation.
 
-    def __init__(self, rewrites: int = 3):
-        self.rewrites = rewrites
+    A dataclass so its settings land in the run's ``config.json`` automatically.
+    """
+
+    rewrites: int = 3
 
     def fit(self, *, model, seed_prompt, train, validation, metric, greater_is_better, report, **_):
         # Any callable model(system_prompt, text) -> str works; VLLM offers one.

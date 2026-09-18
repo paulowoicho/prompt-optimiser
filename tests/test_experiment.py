@@ -222,11 +222,13 @@ def test_training_failure_survives_a_failing_diagnostics_upload(tmp_path):
 def test_a_new_backend_needs_only_fit_and_prompts_without_save(tmp_path):
     """The contract for a third-party optimiser: one method, two Prompts, nothing else."""
     import importlib.util
+    import sys
 
     spec = importlib.util.spec_from_file_location(
         "custom_backend", Path(__file__).resolve().parents[1] / "examples" / "custom_backend.py"
     )
     module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module  # dataclasses resolve annotations through sys.modules
     spec.loader.exec_module(module)
 
     def fake_model(system_prompt, text):
@@ -248,3 +250,5 @@ def test_a_new_backend_needs_only_fit_and_prompts_without_save(tmp_path):
     assert result.scores["final"]["test"]["score"] == 1
     assert (result.output_dir / "best" / "prompt.txt").read_text() == "Always answer yes."
     assert len(result.history) == 3
+    config = json.loads((result.output_dir / "config.json").read_text())
+    assert config["backend_config"] == {"rewrites": 2}

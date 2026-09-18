@@ -168,15 +168,15 @@ holds per-row predictions, native state and the MLflow run.
 
 | Model | Tool | Configuration | Baseline val / test | Final val / test | Outcome |
 |---|---|---|---|---|---|
-| Llama-3.1-8B | DSPy | MIPROv2, 3 candidates, 3 trials, DSPy's default proposers | 0.900 / 0.875 | 0.950 / 0.925 | improved |
-| Llama-3.1-8B | DSPy | MIPROv2, same but program/tip-aware proposers off | 0.900 / 0.875 | 0.900 / 0.875 | kept seed |
+| Llama-3.1-8B | DSPy | MIPROv2, 3 candidates, 3 trials, native proposer and demonstration defaults | 0.900 / 0.875 | 0.950 / 0.925 | improved |
+| Llama-3.1-8B | DSPy | MIPROv2, small zero-shot preset: no demonstrations, data-aware proposer only, whole train set as data summary | 0.900 / 0.875 | 0.900 / 0.875 | kept seed |
 | Llama-3.1-8B | DSPy | COPRO, breadth 3, depth 2 | 0.900 / 0.875 | 0.900 / 0.875 | kept seed; candidate 0.825 |
 | Llama-3.1-8B | DSPy | LabeledFewShot, k=4 | 0.900 / 0.875 | 0.900 / 0.875 | tied, kept seed |
 | Llama-3.1-8B | TextGrad | TGD, 3 steps, batch 2 | 0.900 / 0.900 | 0.900 / 0.900 | kept seed |
 | Llama-3.1-8B | TextGrad | TGD, 3 steps, batch 4 | 0.900 / 0.900 | 0.925 / 0.875 | val up, test down |
 | Llama-3.1-8B | TextGrad | TGD with gradient memory 2, 3 steps, batch 2 | 0.900 / 0.900 | 0.900 / 0.900 | kept seed; last candidate 0.250 |
 | Qwen2.5-72B-AWQ | DSPy | MIPROv2, 3 candidates, 3 trials | 1.000 / 0.975 | 1.000 / 0.975 | no headroom |
-| Qwen2.5-72B-AWQ | TextGrad | TGD, 3 steps, batch 4 | 0.975 / 1.000 | 0.975 / 1.000 | kept seed; candidates 0.925, 0.950, 0.950 |
+| Qwen2.5-72B-AWQ | TextGrad | TGD, 3 steps, batch 4 | 0.975 / 1.000 | 0.975 / 1.000 | kept seed; candidates 0.925, 0.950, 0.975 (tie) |
 | Qwen2.5-1.5B (earlier) | DSPy | MIPROv2 preset | 0.525 / 0.500 | 0.525 / 0.500 | predictions not saved |
 
 Forty examples per split means one example is 0.025. None of these differences is
