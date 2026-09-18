@@ -1,25 +1,20 @@
 """A complete optimiser backend in about thirty lines, plugged in with no changes to the library.
 
-It asks the model for a few rewrites of the seed prompt, scores each on validation, and keeps
-the best. Not a serious optimiser; it shows the whole contract: one ``fit`` method, a
-``FitResult`` of two ``Prompt``s. Run it against a served model:
+It asks the model for a few rewrites of the seed prompt, scores each on validation, and keeps the
+best. Not a serious optimiser; it shows the whole contract: one ``fit`` method returning a
+``FitResult`` of two ``Prompt``s. Self-contained: a tiny sentiment task is defined below.
 
-    python examples/custom_backend.py --model llama-3.1-8b-instruct --base-url http://127.0.0.1:8124/v1
+    python examples/custom_backend/rewrite_search.py \
+        --model llama-3.1-8b-instruct --base-url http://127.0.0.1:8124/v1
 """
 
 from __future__ import annotations
 
 import json
-import sys
 from dataclasses import dataclass
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from sms_common import PROBLEM  # noqa: E402
-from sms_data import load_dataset, make_splits  # noqa: E402
-
-from prompt_optimiser import VLLM, Event, FitResult, Prompt, optimize  # noqa: E402
-from prompt_optimiser.experiment import measure  # noqa: E402
+from prompt_optimiser import VLLM, Event, Example, FitResult, Prompt, optimize
+from prompt_optimiser.experiment import measure
 
 
 @dataclass
@@ -56,6 +51,22 @@ class RewriteSearch:
         return FitResult(baseline=candidates[0], best=best)
 
 
+SENTIMENT = [
+    ("Absolutely loved it, would buy again.", "positive"),
+    ("Broke after two days. Waste of money.", "negative"),
+    ("Does what it says. Nothing special.", "neutral"),
+    ("Customer service was rude and unhelpful.", "negative"),
+    ("Exceeded every expectation I had.", "positive"),
+    ("Arrived on time. Haven't used it much yet.", "neutral"),
+    ("The best purchase I've made this year.", "positive"),
+    ("Cheap plastic, smells odd, returning it.", "negative"),
+    ("It's fine. Average quality for the price.", "neutral"),
+    ("Five stars, my kids adore it.", "positive"),
+    ("Stopped working after a week and no refund.", "negative"),
+    ("Okay product, okay packaging, okay delivery.", "neutral"),
+]
+
+
 def main():
     import argparse
 
@@ -64,15 +75,14 @@ def main():
     parser.add_argument("--base-url", required=True)
     parser.add_argument("--rewrites", type=int, default=3)
     args = parser.parse_args()
-    rows, _ = load_dataset(Path("runs/datasets/sms.zip"))
-    train, validation, test = make_splits(rows, 10, 20, 42)
+    rows = [Example(text, label) for text, label in SENTIMENT]
     result = optimize(
-        problem=PROBLEM,
-        model=VLLM(args.model, base_url=args.base_url, max_tokens=256),
+        problem="Classify the review's sentiment. Return only positive, negative or neutral.",
+        model=VLLM(args.model, base_url=args.base_url, max_tokens=64),
         backend=RewriteSearch(args.rewrites),
-        train_data=train,
-        validation_data=validation,
-        test_data=test,
+        train_data=rows[:6],
+        validation_data=rows[6:9],
+        test_data=rows[9:],
     )
     print(result.prompt)
     print(json.dumps(result.scores, indent=2))

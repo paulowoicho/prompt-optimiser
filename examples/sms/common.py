@@ -8,8 +8,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from sms_data import load_dataset, make_splits
-
+from examples.sms.data import load_dataset, make_splits
 from prompt_optimiser.experiment import measure
 from prompt_optimiser.tracking import ConsoleTracker, JSONLTracker, MLflowTracker, WandbTracker
 from prompt_optimiser.types import Event

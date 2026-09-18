@@ -1,6 +1,6 @@
 """Run several optimiser configurations on the same SMS splits and model, one after another.
 
-    python examples/sweep_sms.py --model llama-3.1-8b-instruct --base-url http://127.0.0.1:8124/v1 \
+    python examples/sms/sweep.py --model llama-3.1-8b-instruct --base-url http://127.0.0.1:8124/v1 \
         --output runs/sweep-8b --tracking-uri sqlite:///runs/mlflow.db
 
 Each configuration gets its own directory under --output and its own MLflow run. Failures are
@@ -17,10 +17,9 @@ import time
 import traceback
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from sms_common import PROBLEM  # noqa: E402
-from sms_data import load_dataset, make_splits  # noqa: E402
-
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # repo root
+from examples.sms.common import PROBLEM  # noqa: E402
+from examples.sms.data import load_dataset, make_splits  # noqa: E402
 from prompt_optimiser import VLLM, DSPy, TextGrad, exact_match, optimize  # noqa: E402
 from prompt_optimiser.tracking import ConsoleTracker, MLflowTracker  # noqa: E402
 

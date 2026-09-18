@@ -3,22 +3,22 @@
 Examples (servers as in docs/VLLM.md):
 
   # DSPy, MIPROv2 with default native settings
-  python examples/unified_sms.py --backend dspy --optimizer MIPROv2 \
+  python examples/sms/unified.py --backend dspy --optimizer MIPROv2 \
       --optimizer-kwargs '{"auto": "light"}' \
       --model llama-3.1-8b-instruct --base-url http://127.0.0.1:8124/v1
 
   # DSPy, COPRO
-  python examples/unified_sms.py --backend dspy --optimizer COPRO \
+  python examples/sms/unified.py --backend dspy --optimizer COPRO \
       --optimizer-kwargs '{"breadth": 4, "depth": 2}' \
       --model llama-3.1-8b-instruct --base-url http://127.0.0.1:8124/v1
 
   # DSPy, bootstrapped demonstrations with random search
-  python examples/unified_sms.py --backend dspy --optimizer BootstrapFewShotWithRandomSearch \
+  python examples/sms/unified.py --backend dspy --optimizer BootstrapFewShotWithRandomSearch \
       --optimizer-kwargs '{"max_bootstrapped_demos": 4, "num_candidate_programs": 4}' \
       --model llama-3.1-8b-instruct --base-url http://127.0.0.1:8124/v1
 
   # TextGrad, textual gradient descent with gradient memory and a custom critique
-  python examples/unified_sms.py --backend textgrad --optimizer TextualGradientDescent \
+  python examples/sms/unified.py --backend textgrad --optimizer TextualGradientDescent \
       --optimizer-kwargs '{"gradient_memory": 2}' \
       --steps 3 --batch-size 4 --loss "Judge only whether the label is correct." \
       --model llama-3.1-8b-instruct --base-url http://127.0.0.1:8124/v1
@@ -27,10 +27,19 @@ Add --tracker mlflow --tracking-uri sqlite:///runs/mlflow.db to see it at http:/
 """
 
 import json
+import sys
+from pathlib import Path
 
-from sms_common import PROBLEM, optimizer_model, setup, target_model, trackers_for
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # repo root, for qualified imports
 
-from prompt_optimiser import DSPy, TextGrad, optimize
+from examples.sms.common import (  # noqa: E402
+    PROBLEM,
+    optimizer_model,
+    setup,
+    target_model,
+    trackers_for,
+)
+from prompt_optimiser import DSPy, TextGrad, optimize  # noqa: E402
 
 
 def build_backend(args):

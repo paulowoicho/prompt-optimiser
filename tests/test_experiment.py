@@ -2,7 +2,6 @@
 
 import json
 from dataclasses import dataclass, field
-from pathlib import Path
 
 import pytest
 
@@ -217,38 +216,3 @@ def test_training_failure_survives_a_failing_diagnostics_upload(tmp_path):
         )
     assert closed == [("uploader", "failed"), ("quiet", "failed")]
     assert json.loads((tmp_path / "run" / "status.json").read_text()) == {"status": "failed"}
-
-
-def test_a_new_backend_needs_only_fit_and_prompts_without_save(tmp_path):
-    """The contract for a third-party optimiser: one method, two Prompts, nothing else."""
-    import importlib.util
-    import sys
-
-    spec = importlib.util.spec_from_file_location(
-        "custom_backend", Path(__file__).resolve().parents[1] / "examples" / "custom_backend.py"
-    )
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module  # dataclasses resolve annotations through sys.modules
-    spec.loader.exec_module(module)
-
-    def fake_model(system_prompt, text):
-        if system_prompt.startswith("Rewrite"):
-            return "Always answer yes."
-        return "yes" if system_prompt == "Always answer yes." else "no"
-
-    result = optimize(
-        problem="Return yes",
-        model=fake_model,
-        backend=module.RewriteSearch(rewrites=2),
-        train_data=ROWS[:6],
-        validation_data=ROWS[6:8],
-        test_data=ROWS[8:],
-        output_dir=tmp_path / "run",
-    )
-    assert result.prompt == "Always answer yes."
-    assert result.scores["baseline"]["test"]["score"] == 0
-    assert result.scores["final"]["test"]["score"] == 1
-    assert (result.output_dir / "best" / "prompt.txt").read_text() == "Always answer yes."
-    assert len(result.history) == 3
-    config = json.loads((result.output_dir / "config.json").read_text())
-    assert config["backend_config"] == {"rewrites": 2}

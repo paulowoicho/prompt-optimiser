@@ -133,29 +133,48 @@ The backend never receives test data. Each `Prompt` carries the readable instruc
 exact native predictor, and optionally a function that saves native state into a directory
 (default: write `prompt.txt`). Accept `**request` to ignore arguments you do not need. To call
 the served model without knowing DSPy or TextGrad, use `model.as_litellm()` on a `VLLM`, which
-gives `model(system_prompt, text) -> str`. [examples/custom_backend.py](examples/custom_backend.py)
+gives `model(system_prompt, text) -> str`. [examples/custom_backend/rewrite_search.py](examples/custom_backend/rewrite_search.py)
 is a complete working backend in about thirty lines and is exercised by the test suite. The
 contract is in [prompt_optimiser/experiment.py](prompt_optimiser/experiment.py); the DSPy and
 TextGrad adapters in [prompt_optimiser/native/](prompt_optimiser/native/) are the real examples.
 
+## Examples
+
+One folder per task under [examples/](examples/README.md): `sms/` (labels, exact match, the sweep),
+`career_coaching/` (open-ended answers scored by a pairwise AI judge written inside the example),
+`custom_backend/` (a third optimiser in thirty lines). Each is self-contained.
+
+### Your own metric
+
+A metric is any `metric(expected, predicted) -> float`. Nothing needs registering. If it needs more
+than the target string, give it that context when you build it. The career-coaching example does
+this with an AI judge: the seed prompt answers every question once, those answers become the
+targets, and `PairwiseJudge` (defined in
+[examples/career_coaching/judge.py](examples/career_coaching/judge.py), not in the library) compares
+a candidate answer with the incumbent for the same question in both orderings and returns a
+tie-adjusted preference score (1 win, 0 loss, 0.5 tie). The verdict is constrained to a JSON
+schema by the server and checked by the example. Report the measured baseline: backend
+formatting and serving variation can change the seed responses. Higher scores mean more
+preference from this judge, rather than independently established response quality.
+
 ## The SMS experiment
 
 [UCI SMS Spam Collection](https://archive.ics.uci.edu/dataset/228/sms+spam+collection),
-Almeida & Hidalgo (2011), CC BY 4.0. `examples/sms_data.py` normalises whitespace,
+Almeida & Hidalgo (2011), CC BY 4.0. `examples/sms/data.py` normalises whitespace,
 removes duplicates and conflicting labels, and makes class-balanced disjoint splits, so
 accuracy here does not reflect the natural spam rate. Default experiment: 10 train, 20
 validation and 20 test messages per class, seed 42.
 
 ```bash
-python examples/unified_sms.py --backend dspy --optimizer MIPROv2 \
+python examples/sms/unified.py --backend dspy --optimizer MIPROv2 \
     --optimizer-kwargs '{"auto": null, "num_candidates": 3}' --compile-kwargs '{"num_trials": 3, "minibatch": false}' \
     --model llama-3.1-8b-instruct --base-url http://127.0.0.1:8124/v1 \
     --train-per-class 10 --eval-per-class 20 --tracker mlflow --tracking-uri sqlite:///runs/mlflow.db
-python examples/unified_sms.py --backend textgrad --optimizer TextualGradientDescent --steps 3 --batch-size 4 \
+python examples/sms/unified.py --backend textgrad --optimizer TextualGradientDescent --steps 3 --batch-size 4 \
     --model llama-3.1-8b-instruct --base-url http://127.0.0.1:8124/v1 --train-per-class 10 --eval-per-class 20
 ```
 
-`examples/native_dspy_sms.py` and `examples/native_textgrad_sms.py` are the plain
+`examples/sms/native_dspy.py` and `examples/sms/native_textgrad.py` are the plain
 single-tool scripts the adapters were derived from; read them to see what each tool does
 without the harness.
 

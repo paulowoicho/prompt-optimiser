@@ -1,0 +1,104 @@
+# Career coaching with an AI judge as the metric
+
+Which system prompt makes a model give better career-coaching answers? There is no gold answer
+to a question like "I've been passed over for promotion twice, what's holding me back?", so the
+metric is a pairwise judge: a stronger model reads the question and two answers and says which
+helps more.
+
+## How it is set up
+
+- **Data**: forty synthetic questions in [data.py](data.py), split 16 / 12 / 12 with a seed.
+- **Incumbent**: the seed prompt answers every question once with the model being optimised.
+  Those answers are cached (`runs/coaching/incumbent_responses.json`) and become `Example.target`.
+- **Metric**: [`PairwiseJudge`](judge.py), defined here, not in the library. It is an ordinary
+  `metric(expected, predicted) -> float`. `expected` is the incumbent answer, `predicted` the
+  candidate. The judge sees the question plus both answers as a JSON object (data, not
+  instructions), in both orderings, and returns one of `A_BETTER`, `B_BETTER`, `BOTH_GOOD`,
+  `BOTH_BAD` plus a one-sentence reason. The output is constrained by the server with a JSON
+  schema (`VERDICT_SCHEMA` passed as `response_format`). The returned JSON and verdict are still
+  validated; truncation or transport errors fail the run. Scores are 1 / 0 / 0.5 / 0.5 by
+  default, a tie-adjusted preference score against the seed prompt, where 0.5 covers equal
+  quality, both bad, and the judge disagreeing with itself across orderings. The baseline
+  compares the seed prompt with itself and should sit near 0.5. It is not exactly 0.5: the backend
+  renders the seed in its own format (DSPy wraps it in a signature with field markers, TextGrad
+  sends it as a plain system prompt) while the incumbents came from a plain chat call, and serving
+  is not perfectly deterministic. The distance from 0.5 measures that effect and is worth
+  reading before the final score. A position-biased judge that always says A scores a tie. The
+  enum check stays in code so a transport without constrained decoding fails loudly rather than
+  scoring a guess; before the schema was added, a live Qwen2.5-72B run failed on exactly that,
+  appending prose after its label. One more live failure shaped this: with the schema alone, the
+  judge hit the reason's length cap and then emitted a hundred blank lines until the token budget
+  ran out, so the run also sets vLLM's `guided_whitespace_pattern` to allow at most one space
+  between JSON tokens. Both failures were caught because the metric raises instead of guessing.
+- **Judge model**: a different and larger model than the one being optimised. Here Qwen2.5-72B
+  judges Llama-3.1-8B. Judging with the same model measures self-preference.
+- **Why the judge takes a lookup**: the library's metric never sees the input, only the target and
+  the prediction. The judge gets a `{incumbent answer: question}` mapping when it is built. That is
+  the whole pattern for "my metric needs context": give it the context at construction time.
+
+Nothing was added to the library for this. The judge, data and runner are three files in this folder.
+
+## Run
+
+```bash
+python examples/career_coaching/run.py \
+    --model llama-3.1-8b-instruct --base-url http://127.0.0.1:8124/v1 \
+    --judge-model qwen2.5-72b-instruct-awq --judge-base-url http://127.0.0.1:8123/v1 \
+    --backend dspy --optimizer MIPROv2 \
+    --optimizer-kwargs '{"auto": null, "num_candidates": 3, "max_errors": 1}' \
+    --compile-kwargs '{"num_trials": 3, "minibatch": false}' \
+    --tracker mlflow --output runs/coaching/dspy-miprov2
+
+# GEPA: reflective prompt evolution, budgeted by metric calls
+python examples/career_coaching/run.py ... --backend dspy --optimizer GEPA \
+    --optimizer-kwargs '{"max_metric_calls": 120, "reflection_minibatch_size": 3}' \
+    --output runs/coaching/dspy-gepa
+
+python examples/career_coaching/run.py ... --backend textgrad --steps 3 --batch-size 4 \
+    --output runs/coaching/textgrad-tgd
+```
+
+Any DSPy teleprompter works the same way: name it and pass its constructor arguments. The adapter
+fills in only what the constructor declares (metric, task and prompt models, GEPA's
+`reflection_lm`, seed). GEPA is a natural partner for a judge: it reflects on per-example
+feedback, and its metric may return a score with feedback text; here it gets the score only.
+The TextGrad path uses the same criteria as the judge for its textual critique
+([loss.py](loss.py), contributed by Codex) and a constraint that the learned prompt stay
+reusable, after a smoke run learned a prompt that embedded an answer to one training question.
+
+The run directory holds per-row predictions for every split, `judge_verdicts.jsonl` with every
+comparison the judge made and its one-sentence reason, and `judge_counts.json` with the tally.
+They are written before the MLflow/W&B upload, so the trackers carry them too. The incumbent
+cache is keyed on the target model configuration and seed prompt and regenerates when either
+changes.
+
+## Results
+
+**What the judge actually said** (MIPROv2 run, 232 verdicts across all evaluations):
+`BOTH_GOOD` 208, `BOTH_BAD` 21, `A_BETTER` 2, `B_BETTER` 1. Ninety-nine percent ties. The judge
+finds the 8B's answers to any two coaching prompts interchangeable, so every candidate scores 0.5
+and the optimiser keeps the seed. In a direct probe the same judge scored a deliberately bad
+answer 0.0 and an off-topic one 0.25, so it can tell bad from worse; what it cannot do is rank
+two competent-looking answers. That is a property of this hand-written rubric, and it is the
+motivation for the [preference_judge](../preference_judge/) example, which calibrates the judge
+on human votes before using it as a metric.
+
+GEPA spent its 120-call budget the same way: 464 verdicts, 439 `BOTH_GOOD`, 12 `BOTH_BAD`, 13
+decisive; training minibatch scores never left {0.417, 0.5, 0.583}; seed kept.
+
+The TextGrad run illustrates a second hazard. Its selected prompt edged the seed on validation
+by one decisive verdict (0.521) and tied on test, which does not establish a general improvement. Worse, despite the
+reusability constraint the learned text reads as a coaching *reply* ("Can you tell me more about
+your current role...") and mentions AI's impact on the person's role, lifted from a training
+question. Its 280 verdicts were 224 `BOTH_GOOD`, 54 `BOTH_BAD`, 2 `A_BETTER`. With a judge this
+indifferent, a textual-gradient optimiser has no signal to steer by and drifts.
+
+These twelve validation and twelve test questions are a small illustrative sample. Judge
+disagreement and question sampling add uncertainty; these runs do not establish statistical
+significance. One question can move a split's score by at most 0.083.
+
+| Optimised model | Judge | Configuration | Baseline val / test | Final val / test |
+|---|---|---|---|---|
+| Llama-3.1-8B | Qwen2.5-72B-AWQ | DSPy MIPROv2, 3 candidates, 3 trials | 0.500 / 0.500 | 0.500 / 0.500, kept seed |
+| Llama-3.1-8B | Qwen2.5-72B-AWQ | DSPy GEPA, 120 metric calls, reflection minibatch 3 | 0.500 / 0.500 | 0.500 / 0.500, kept seed |
+| Llama-3.1-8B | Qwen2.5-72B-AWQ | TextGrad TGD, 3 steps, batch 4, rubric loss + reusability constraint | 0.500 / 0.500 | 0.521 / 0.500 |

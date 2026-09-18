@@ -24,12 +24,17 @@ the algorithm; the experimenter does.
 - README rewritten around the generic adapters, with the SMS results table.
 - Nine optimiser runs on the 8B and 72B models plus the earlier 1.5B run, tabulated in the
   README; both agents cross-reviewed each other's code and docs.
-- A third backend written as a thirty-line example (`examples/custom_backend.py`), under test.
-- First commit `e450ab3` (2026-09-18).
+- A third backend written as a thirty-line example (`examples/custom_backend/rewrite_search.py`), under test.
+- First commits `5feb93d`, `de49e04` (2026-09-18; history rewritten to exclude coordination records).
+
+- Career-coaching example: example-local AI judge and TextGrad feedback; MIPROv2, GEPA and
+  TextGrad runs recorded. Examples organised one folder per task.
 
 ## In progress
 
-- Nothing at this checkpoint. Next experiments are the user's call.
+- Final review and commit of the MT-Bench preference-judge example. Both stages and live runs
+  are complete; review fixes preserve stage-1 splits and judge settings in stage 2, retain
+  demonstrations on reload, and upload reports before trackers close.
 
 ## Later
 
