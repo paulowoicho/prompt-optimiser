@@ -10,7 +10,7 @@ tools (DSPy, TextGrad, or your own) and, within each tool, between its optimiser
 The library provides the interface and the experiment lifecycle. It does not choose
 the algorithm; the experimenter does.
 
-## Done (2026-09-18)
+## Done (2026-09-19)
 
 - One entry point, `optimize(...)`, with one extension contract, `OptimizerBackend.fit(...)`.
 - The earlier candidate-search prototype (`PromptOptimizer`, `SearchContext`, textual
@@ -40,14 +40,16 @@ the algorithm; the experimenter does.
   Score-only GEPA beat the 400-call feedback variant on judge-validation; the two stage-2
   response runs and their cross-scoring were reviewed against saved artifacts.
 
+- Coaching judge calibration and response experiments on 160 synthetic questions are complete
+  and reviewed. Judge validation agreement rose 0.665→0.695, test stayed 0.630, and test position
+  consistency rose 0.63→0.81. Both response prompts improved their judged scores over the seed;
+  cross-scoring showed no test-score advantage from calibration in this run. All four cross-scores
+  were independently reproduced; synthetic-label quality and comparison limitations are documented.
+
+- Private GitHub repository created and the reviewed commits pushed to the user's account.
+
 ## In progress
 
-- Coaching judge calibration on 160 synthetic questions: data construction, seeded committee
-  labels, disjoint judge/response splits, saved judge reload and tracker reports are implemented
-  and reviewed. Committee labelling and GEPA calibration finished: validation agreement rose
-  0.665→0.695, test stayed 0.630, and test position consistency rose 0.63→0.81. Response
-  comparisons are in progress; synthetic-label quality limitations are documented.
-- Private GitHub repository created and the reviewed commits pushed to the user's account.
 - Shared-board coordination with Claude remains active. The earlier MT-Bench 1500-call feedback
   run tied validation agreement and lost the consistency tie-break; its selected judge is unchanged.
 

@@ -200,6 +200,41 @@ are heuristic; independent human labels would give a target that is not another 
 which is different from guaranteeing an unbiased judge. Reporting agreement by label source is
 what made any of this visible, and it is the part worth copying.
 
-#### Stage 2
+#### Stage 2: Llama-3.1-8B coaching prompt, GEPA (400 calls), judged by the stage-1 judges
 
-Pending: GEPA response optimisation with the calibrated and the baseline judge.
+Tie-adjusted preference against the seed prompt's own answers, with matching backend rendering.
+All recorded baseline scores are 0.5. The 27 / 14 / 14 train / validation / test questions are
+separate from every judge-calibration split. Selection used validation with each run's own judge;
+the test questions were reserved for evaluation. One question can change the test mean by at most
+1/14 ≈ 0.071.
+
+| Judge used as the metric | Final val / test (own judge) | Selected program | Mean test answer length |
+|---|---|---|---|
+| GEPA-calibrated (`stage1-gepa/best`) | 0.750 / 0.679 | 3,722-char rewritten instructions, no demonstrations | 2,448 chars (incumbent 2,142) |
+| seed judge (`stage1-gepa/baseline`) | 0.679 / 0.661 | 3,907-char rewritten instructions, no demonstrations | 2,451 chars (same incumbents) |
+
+Cross-scoring both selected programs' saved test answers with both saved judges reproduced the
+following means (`runs/coaching_preference/stage2-gepa-crosscheck-reviewed.json` also records
+per-question scores, raw verdicts and artifact hashes):
+
+| Selected by | Scored by calibrated judge | Scored by seed judge |
+|---|---|---|
+| calibrated judge | 0.679 | 0.607 |
+| seed judge | 0.696 | 0.661 |
+
+Each cell scores that prompt's answers against the same seed-answer incumbents; this is not a
+head-to-head comparison between the two selected prompts. Both selected prompts score above 0.5
+under either judge. The prompt selected by the uncalibrated judge has slightly higher test means
+under both scorers, by 0.018 and 0.054 respectively. This run therefore shows no test-score
+advantage from calibrating the judge, despite stage 1's improved committee agreement and position
+consistency. Fourteen test questions and one seed are insufficient to conclude that calibration
+is generally ineffective. Answers from both optimised prompts average about 14% longer than the
+incumbents; this association does not isolate an effect of answer length.
+
+Part one's GEPA run kept the seed and produced 451 tie verdicts (`BOTH_GOOD`/`BOTH_BAD`) out of
+464, or 97.2%. Here the calibrated and seed judges returned `TIE` in 435/1,290 (33.7%) and
+350/1,282 (27.3%) comparisons respectively. These are counts across all evaluations, including
+training and candidate selection, rather than held-out tie rates. The rubric, label set, dataset,
+incumbent rendering and optimisation budget also changed between the two parts, so this is not a
+controlled test of which change made the metric more discriminating. These synthetic-label
+experiments demonstrate the workflow; they do not establish improved coaching quality for people.
