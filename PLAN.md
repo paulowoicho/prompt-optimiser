@@ -44,7 +44,9 @@ the algorithm; the experimenter does.
 
 - Coaching judge calibration on 160 synthetic questions: data construction, seeded committee
   labels, disjoint judge/response splits, saved judge reload and tracker reports are implemented
-  and reviewed. Live committee labelling, calibration and response comparisons are in progress.
+  and reviewed. Committee labelling and GEPA calibration finished: validation agreement rose
+  0.665→0.695, test stayed 0.630, and test position consistency rose 0.63→0.81. Response
+  comparisons are in progress; synthetic-label quality limitations are documented.
 - Private GitHub repository created and the reviewed commits pushed to the user's account.
 - Shared-board coordination with Claude remains active. The earlier MT-Bench 1500-call feedback
   run tied validation agreement and lost the consistency tie-break; its selected judge is unchanged.

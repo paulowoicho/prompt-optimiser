@@ -148,4 +148,58 @@ python examples/career_coaching/optimize_with_judge.py \
 
 ### Results
 
-Pending live runs.
+#### Stage 1: Qwen2.5-72B judge calibrated with GEPA (400 calls) on the synthetic labels
+
+440 training, 200 validation and 200 test rows (4 pairs per question, both orderings; one test
+row is 0.005). Labels are synthetic, as described above.
+
+| | Train | Validation | Test | Test position consistency |
+|---|---|---|---|---|
+| seed judge | 0.664 | 0.665 | 0.630 | 0.63 |
+| GEPA-calibrated judge | 0.664 | 0.695 | 0.630 | 0.81 |
+
+Agreement on the test rows by label source and by pair kind, seed → calibrated:
+
+| Source / kind | Seed | Calibrated |
+|---|---|---|
+| committee pairs (all) | 0.659 | **0.750** |
+| 8B seed answer vs 72B strong answer | 0.679 | 0.679 |
+| 8B seed answer vs 8B bare-prompt answer | 0.625 | 0.875 |
+| constructed pairs (all) | 0.622 | **0.596** |
+| strong vs truncated | 1.00 | 1.00 |
+| strong vs off-topic | 0.95 | 1.00 |
+| strong vs itself (tie) | 1.00 | 1.00 |
+| strong vs generic rewrite | 0.176 | **0.088** |
+| strong vs padded | 0.464 | **0.321** |
+| strong vs unethical rewrite | 0.318 | 0.409 |
+
+What happened: GEPA rewrote the judge's instructions (no demonstrations). The calibrated judge is
+far more self-consistent across orderings and agrees more with the committee, and it less often
+distinguishes the original from two of the intended degradations. On the held-out rows neither
+judge ever picks the padded or the generic rewrite over the original; what changes is ties. For
+the 28 padded rows the original wins 13 → 9 and ties go 15 → 19; for the 34 generic rows the
+original wins 6 → 3 and ties go 28 → 31. The generic rewrite is subtle (same structure and length,
+only the specifics removed: "accounting → your new field"), which may help explain the high
+tie rate. Overall test agreement is flat because the committee gain (29 → 33 of 44 rows) and the
+constructed loss (97 → 93 of 156) cancel exactly at 126 of 200.
+
+Two limitations matter here. The committee preferred the 8B's seed-prompt answers
+over the 72B's concise "strong" answers 117 to 29, and in 159 of 160 such pairs the 8B answer is
+the longer one (about 2,900 versus 1,500 characters), so a length preference is plausible; but
+length is confounded with model, prompt and content, and the calibrated judge did not start
+preferring padded text, it stopped separating it. Second, the committee itself produced 236
+invalid votes out of 1,920 (a reasoning answer that did not end in a label), so its majorities
+are over the valid votes only: 155 pairs had no invalid vote, 110 had one, 43 two, 9 three, 2
+four and 1 five, so 12 pairs were decided on three or fewer valid votes and one on a single vote.
+The calibrated judges produced no invalid outputs.
+
+Read the numbers as 25 held-out question groups, not 200 independent observations. The
+conclusion is narrow: better committee agreement and position consistency did not improve
+overall held-out agreement and do not establish better coaching judgement. Degradation labels
+are heuristic; independent human labels would give a target that is not another model's opinion,
+which is different from guaranteeing an unbiased judge. Reporting agreement by label source is
+what made any of this visible, and it is the part worth copying.
+
+#### Stage 2
+
+Pending: GEPA response optimisation with the calibrated and the baseline judge.
