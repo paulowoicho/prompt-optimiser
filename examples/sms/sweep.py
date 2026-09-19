@@ -1,6 +1,7 @@
 """Run several optimiser configurations on the same SMS splits and model, one after another.
 
-    python examples/sms/sweep.py --model llama-3.1-8b-instruct --base-url http://127.0.0.1:8124/v1 \
+    python -m examples.sms.sweep --model llama-3.1-8b-instruct \
+        --base-url http://127.0.0.1:8124/v1 \
         --output runs/sweep-8b --tracking-uri sqlite:///runs/mlflow.db
 
 Each configuration gets its own directory under --output and its own MLflow run. Failures are
@@ -8,20 +9,22 @@ recorded in summary.json and the sweep continues. Edit CONFIGS to add or change 
 that is the point of the exercise. Derived from Codex's runs/review_8b.py.
 """
 
-from __future__ import annotations
-
 import argparse
 import json
-import sys
+from pathlib import Path
 import time
 import traceback
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # repo root
-from examples.sms.common import PROBLEM  # noqa: E402
-from examples.sms.data import load_dataset, make_splits  # noqa: E402
-from prompt_optimiser import VLLM, DSPy, TextGrad, exact_match, optimize  # noqa: E402
-from prompt_optimiser.tracking import ConsoleTracker, MLflowTracker  # noqa: E402
+from examples.sms.common import PROBLEM
+from examples.sms.data import load_dataset
+from examples.sms.data import make_splits
+from prompt_optimiser import VLLM
+from prompt_optimiser import DSPy
+from prompt_optimiser import TextGrad
+from prompt_optimiser import exact_match
+from prompt_optimiser import optimize
+from prompt_optimiser.tracking import ConsoleTracker
+from prompt_optimiser.tracking import MLflowTracker
 
 CONFIGS = {
     "dspy-gepa": lambda: DSPy(
@@ -113,7 +116,9 @@ def main():
         summary.append(entry)
         args.output.mkdir(parents=True, exist_ok=True)
         (args.output / "summary.json").write_text(json.dumps(summary, indent=2))
-        print("RESULT " + json.dumps({k: v for k, v in entry.items() if k != "prompt"}), flush=True)
+        print(
+            "RESULT " + json.dumps({k: v for k, v in entry.items() if k != "prompt"}), flush=True
+        )
 
 
 if __name__ == "__main__":

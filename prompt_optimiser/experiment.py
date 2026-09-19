@@ -1,24 +1,34 @@
 """A thin experiment lifecycle around an optimizer's own training loop."""
 
-from __future__ import annotations
-
+from collections.abc import Callable, Iterable
+from dataclasses import dataclass
+from dataclasses import field
+from dataclasses import fields
+from dataclasses import is_dataclass
 import json
 import math
-from collections.abc import Callable, Iterable
-from dataclasses import dataclass, field, fields, is_dataclass
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Protocol, TextIO, runtime_checkable
 
-from .data import Data, check_disjoint, examples, split_validation
-from .metrics import exact_match
-from .types import Event, Example, Metric, Tracker
+from prompt_optimiser.data import Data
+from prompt_optimiser.data import check_disjoint
+from prompt_optimiser.data import examples
+from prompt_optimiser.data import split_validation
+from prompt_optimiser.metrics import exact_match
+from prompt_optimiser.types import Event
+from prompt_optimiser.types import Example
+from prompt_optimiser.types import Metric
+from prompt_optimiser.types import Tracker
 
 
 @dataclass
 class Prompt:
     """Readable instructions plus the exact native predictor that was evaluated.
 
-    ``save_native`` may be omitted; the default writes ``prompt.txt`` into the directory.
+    Attributes:
+        text: Human-readable instructions.
+        predict_one: Native predictor accepting one text input.
+        save_native: Artifact writer. None installs a writer for prompt.txt.
     """
 
     text: str
@@ -38,10 +48,18 @@ class Prompt:
 
 @dataclass
 class FitResult:
+    """Predictors returned by an optimisation backend.
+
+    Attributes:
+        baseline: Predictor before optimisation.
+        best: Validation-selected predictor; may be the baseline itself.
+    """
+
     baseline: Prompt
     best: Prompt
 
 
+@runtime_checkable
 class OptimizerBackend(Protocol):
     """Anything with this one method is a backend. Accept ``**request`` to ignore arguments."""
 
@@ -58,7 +76,22 @@ class OptimizerBackend(Protocol):
         random_state: int,
         report: Callable[[Event], None],
     ) -> FitResult:
-        """Run native training. Test data is deliberately absent from this contract."""
+        """Train and select a prompt without access to test data.
+
+        Args:
+            problem: Task description.
+            model: Model configuration understood by the backend.
+            seed_prompt: Initial instructions.
+            train: Examples available for optimisation.
+            validation: Examples available for prompt selection.
+            metric: Numeric selection and reporting metric.
+            greater_is_better: Whether higher metric values are preferred.
+            random_state: Seed for reproducible sampling where supported.
+            report: Callback receiving training events.
+
+        Returns:
+            The baseline and selected native predictors.
+        """
         ...
 
 
@@ -67,8 +100,22 @@ def measure(
     data: Iterable[Example],
     metric: Metric,
     record: Callable[[Example, str, float], None] | None = None,
-) -> dict:
-    """Mean metric over data. ``record`` receives every (example, prediction, score)."""
+) -> dict[str, float | int]:
+    """Evaluate a predictor using the mean per-example metric.
+
+    Args:
+        predict: Predictor accepting one text input.
+        data: Examples to evaluate.
+        metric: Numeric score for a reference and prediction.
+        record: Optional callback receiving each example, prediction and score.
+
+    Returns:
+        Mean score and number of examples.
+
+    Raises:
+        TypeError: A prediction is not text.
+        ValueError: Data is empty or a metric value is nonfinite.
+    """
     scores = []
     for row in data:
         prediction = predict(row.input)
@@ -87,13 +134,33 @@ def measure(
 
 @dataclass
 class ExperimentResult:
+    """The selected prompt, predictor and experiment artifacts.
+
+    Attributes:
+        prompt: Selected instructions.
+        scores: Baseline and final measurements, grouped by data split.
+        history: Native candidate events in reporting order.
+        output_dir: Directory containing configuration, predictions and native artifacts.
+    """
+
     prompt: str
-    scores: dict[str, dict[str, dict]]
-    history: list[dict]
+    scores: dict[str, dict[str, dict[str, float | int]]]
+    history: list[dict[str, Any]]
     output_dir: Path
     _predict: Callable[[str], str] = field(repr=False)
 
     def predict(self, inputs: Iterable[str]) -> list[str]:
+        """Generate predictions with the selected native predictor.
+
+        Args:
+            inputs: Text inputs in prediction order; not a single string.
+
+        Returns:
+            Response text for each input.
+
+        Raises:
+            TypeError: Inputs or predictions violate the text-only contract.
+        """
         if isinstance(inputs, str):
             raise TypeError("Pass a sequence of input strings")
         result = []
@@ -113,6 +180,26 @@ def _looks_secret(name: str) -> bool:
     if any(word in lowered for word in ("api_key", "apikey", "secret", "password")):
         return True
     return lowered == "token" or lowered.endswith("_token")
+
+
+def _public_value(value: Any) -> Any:
+    # Nested experiment settings are kept; anything that looks like a credential is not.
+    if hasattr(value, "public_config"):
+        return value.public_config()
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, dict):
+        return {
+            str(key): "[redacted]" if _looks_secret(str(key)) else _public_value(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, (list, tuple, set, frozenset)):
+        return [_public_value(item) for item in value]
+    if isinstance(value, type):
+        return value.__name__
+    if callable(value):
+        return getattr(value, "__name__", type(value).__name__)
+    return getattr(value, "model", type(value).__name__)
 
 
 def optimize(
@@ -135,6 +222,28 @@ def optimize(
 
     Textual losses, critics, candidate generation and search stay inside the backend.
     The common metric measures task success; it does not replace native training loss.
+
+    Args:
+        problem: Nonempty task description, also the seed when seed_prompt is omitted.
+        model: Model identifier or configuration understood by the backend.
+        backend: Optimiser implementing fit().
+        train_data: Training examples or input/target mappings.
+        validation_data: Selection examples. None reserves 20% of distinct training inputs.
+        test_data: Optional held-out examples, never passed to the backend.
+        seed_prompt: Initial instructions, or None to use problem.
+        metric: Finite numeric metric for selection and final evaluation.
+        greater_is_better: Whether higher metric values are preferred.
+        random_state: Seed for splitting and native training.
+        output_dir: Empty artifact directory. None creates a fresh directory under runs/.
+        trackers: Event sinks, closed on success and failure.
+        metadata: JSON-serialisable experiment details saved with the run.
+
+    Returns:
+        Selected instructions, native predictor, split scores and artifact location.
+
+    Raises:
+        ValueError: Instructions, data splits, output directory or metric values are invalid.
+        TypeError: Data or predictions violate the text-only contract.
     """
     if not isinstance(problem, str) or not problem.strip():
         raise ValueError("problem must be a non-empty task description")
@@ -149,7 +258,8 @@ def optimize(
     test = examples(test_data, "test_data") if test_data is not None else ()
     check_disjoint(train=train, validation=validation, test=test)
     if output_dir is None:
-        from datetime import datetime, timezone
+        from datetime import datetime
+        from datetime import timezone
 
         stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S-%f")
         output_dir = Path("runs") / f"{type(backend).__name__}-{stamp}"
@@ -159,28 +269,10 @@ def optimize(
     if any(destination.iterdir()):
         raise ValueError(f"Use a new or empty output_dir: {destination}")
     trackers = tuple(trackers)
-    history: list[dict] = []
+    history: list[dict[str, Any]] = []
     model_name = model if isinstance(model, str) else getattr(model, "model", type(model).__name__)
-    def public_value(value):
-        # Nested experiment settings are kept; anything that looks like a credential is not.
-        if hasattr(value, "public_config"):
-            return value.public_config()
-        if value is None or isinstance(value, (str, int, float, bool)):
-            return value
-        if isinstance(value, dict):
-            return {
-                str(key): "[redacted]" if _looks_secret(str(key)) else public_value(item)
-                for key, item in value.items()
-            }
-        if isinstance(value, (list, tuple, set, frozenset)):
-            return [public_value(item) for item in value]
-        if isinstance(value, type):
-            return value.__name__
-        if callable(value):
-            return getattr(value, "__name__", type(value).__name__)
-        return getattr(value, "model", type(value).__name__)
-
-    from importlib.metadata import PackageNotFoundError, version
+    from importlib.metadata import PackageNotFoundError
+    from importlib.metadata import version
 
     versions = {}
     for package in ("prompt-optimiser", "dspy", "textgrad", "litellm"):
@@ -188,11 +280,14 @@ def optimize(
             versions[package] = version(package)
         except PackageNotFoundError:
             pass
+    backend_config = {}
+    if is_dataclass(backend):
+        backend_config = _public_value(
+            {item.name: getattr(backend, item.name) for item in fields(backend)}
+        )
     config = {
-        "model_config": public_value(model),
-        "backend_config": public_value(
-            {f.name: getattr(backend, f.name) for f in fields(backend)}
-        ) if is_dataclass(backend) else {},
+        "model_config": _public_value(model),
+        "backend_config": backend_config,
         "versions": versions,
         "problem": problem,
         "model": model_name,
@@ -246,7 +341,9 @@ def optimize(
                     "w", encoding="utf-8"
                 ) as handle:
 
-                    def record(row, prediction, score, handle=handle):
+                    def record(
+                        row: Example, prediction: str, score: float, handle: TextIO = handle
+                    ) -> None:
                         handle.write(
                             json.dumps(
                                 {
@@ -279,11 +376,10 @@ def optimize(
         (destination / "status.json").write_text(json.dumps({"status": status}), encoding="utf-8")
         # Artifact event carries a directory so trackers can retain the native program too.
         report(Event("artifact", len(history), {}, {"path": str(destination.resolve())}))
-        metrics = {
-            f"{phase}/{split}/score": values["score"]
-            for phase, splits in scores.items()
-            for split, values in splits.items()
-        }
+        metrics = {}
+        for phase, split_scores in scores.items():
+            for split, values in split_scores.items():
+                metrics[f"{phase}/{split}/score"] = values["score"]
         report(Event("finish", len(history), metrics, payload))
         return ExperimentResult(
             trained.best.text, scores, history, destination, trained.best.predict_one

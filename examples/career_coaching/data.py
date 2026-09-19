@@ -2,8 +2,6 @@
 
 # ruff: noqa: E501  (the questions read better as single lines)
 
-from __future__ import annotations
-
 import random
 
 QUESTIONS = [

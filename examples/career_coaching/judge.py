@@ -13,12 +13,11 @@ latter a model that wants to keep writing past the schema's string cap can emit 
 the token budget runs out. The judge also returns a one-sentence reason, kept in ``verdicts``.
 """
 
-from __future__ import annotations
-
-import json
 from collections import Counter
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from dataclasses import field
+import json
 
 LABELS = ("A_BETTER", "B_BETTER", "BOTH_GOOD", "BOTH_BAD")
 SWAP = {

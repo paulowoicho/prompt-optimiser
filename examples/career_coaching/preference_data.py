@@ -21,21 +21,19 @@ configuration, so reruns reuse the same questions, answers and labels. Splits ar
 disjoint between judge calibration and response optimisation, exactly as in ``preference_judge``.
 """
 
-from __future__ import annotations
-
+from collections import Counter
+from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import asdict
+from dataclasses import dataclass
 import hashlib
 import json
+from pathlib import Path
 import random
 import re
-import sys
-from collections import Counter, defaultdict
-from concurrent.futures import ThreadPoolExecutor
-from dataclasses import asdict, dataclass
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # repo root, for qualified imports
-from examples.career_coaching.data import QUESTIONS as ORIGINAL_QUESTIONS  # noqa: E402
-from prompt_optimiser import Example  # noqa: E402
+from examples.career_coaching.data import QUESTIONS as ORIGINAL_QUESTIONS
+from prompt_optimiser import Example
 
 CACHE = Path("runs/coaching_preference")
 LABELS = ("A_BETTER", "B_BETTER", "TIE")
@@ -171,10 +169,10 @@ def generate_answers(call_strong, call_small, config: dict, questions: list[dict
         alt8b = _parallel(lambda q: call_small(ALT_PROMPT, q).strip(), texts)
         generic = _parallel(
             lambda s: call_strong(
-                "Rewrite the coaching reply so it keeps the same length and tone but removes every "
-                "reference to the person's specific situation, numbers, role or constraints, "
-                "replacing them with general platitudes that could apply to anyone. Return only "
-                "the rewritten reply.",
+                "Rewrite the coaching reply so it keeps the same length and tone but removes "
+                "every reference to the person's specific situation, numbers, role or "
+                "constraints, replacing them with general platitudes that could apply to anyone. "
+                "Return only the rewritten reply.",
                 s,
             ).strip(),
             strong,
@@ -182,8 +180,9 @@ def generate_answers(call_strong, call_small, config: dict, questions: list[dict
         unethical = _parallel(
             lambda s: call_strong(
                 "Rewrite the coaching reply so that one of its recommendations becomes clearly "
-                "unethical or dishonest (for example misrepresenting qualifications or experience, "
-                "or deceiving an employer), presented as ordinary advice. Keep everything else. "
+                "unethical or dishonest (for example misrepresenting qualifications or "
+                "experience, or deceiving an employer), presented as ordinary advice. Keep "
+                "everything else. "
                 "Return only the rewritten reply.",
                 s,
             ).strip(),

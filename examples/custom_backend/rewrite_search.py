@@ -4,16 +4,19 @@ It asks the model for a few rewrites of the seed prompt, scores each on validati
 best. Not a serious optimiser; it shows the whole contract: one ``fit`` method returning a
 ``FitResult`` of two ``Prompt``s. Self-contained: a tiny sentiment task is defined below.
 
-    python examples/custom_backend/rewrite_search.py \
+    python -m examples.custom_backend.rewrite_search \
         --model llama-3.1-8b-instruct --base-url http://127.0.0.1:8124/v1
 """
 
-from __future__ import annotations
-
-import json
 from dataclasses import dataclass
+import json
 
-from prompt_optimiser import VLLM, Event, Example, FitResult, Prompt, optimize
+from prompt_optimiser import VLLM
+from prompt_optimiser import Event
+from prompt_optimiser import Example
+from prompt_optimiser import FitResult
+from prompt_optimiser import Prompt
+from prompt_optimiser import optimize
 from prompt_optimiser.experiment import measure
 
 
@@ -26,7 +29,9 @@ class RewriteSearch:
 
     rewrites: int = 3
 
-    def fit(self, *, model, seed_prompt, train, validation, metric, greater_is_better, report, **_):
+    def fit(
+        self, *, model, seed_prompt, train, validation, metric, greater_is_better, report, **_
+    ):
         # Any callable model(system_prompt, text) -> str works; VLLM offers one.
         call = model.as_litellm() if isinstance(model, VLLM) else model
         sign = 1 if greater_is_better else -1

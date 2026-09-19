@@ -1,32 +1,35 @@
 """Run a native DSPy optimiser without replacing its training loop."""
 
-from __future__ import annotations
-
+from collections.abc import Callable
+from dataclasses import dataclass
+from dataclasses import field
 import inspect
 import json
 import math
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from ..experiment import FitResult, Prompt, measure
-from ..models import optional_import
-from ..types import Event
-from ..vllm import VLLM
+from prompt_optimiser.experiment import FitResult
+from prompt_optimiser.experiment import Prompt
+from prompt_optimiser.experiment import measure
+from prompt_optimiser.models import optional_import
+from prompt_optimiser.types import Event
+from prompt_optimiser.types import Example
+from prompt_optimiser.types import Metric
+from prompt_optimiser.vllm import VLLM
 
 
 @dataclass
 class DSPy:
-    """Choose a DSPy optimiser class (or its exported name) and native options.
+    """A configurable adapter to DSPy's native compile loop.
 
-    ``program`` is a native module or signature factory, e.g. dspy.Predict or
-    dspy.ChainOfThought, accepting ``text`` and returning ``answer``.
-    ``optimizer_kwargs`` and ``compile_kwargs`` pass through
-    unchanged, except task data and the common metric are owned by the harness.
-    A custom native metric may be supplied in optimizer_kwargs for tools needing
-    richer feedback; the common metric still selects the final result and measures
-    held-out performance. A supplied module retains its own instructions instead
-    of using seed_prompt; its effective instructions are recorded with the baseline.
+    Attributes:
+        optimizer: Exported optimiser name, class, factory or configured instance.
+        optimizer_kwargs: Constructor options, including an optional native metric.
+        compile_kwargs: Compile options; task data comes from the harness.
+        optimizer_model: Proposal model; defaults to the task model.
+        program: Native module or signature factory accepting text and returning answer.
+            A supplied module preserves its own instructions instead of the seed prompt.
     """
 
     optimizer: Any = "MIPROv2"
@@ -38,20 +41,40 @@ class DSPy:
     def fit(
         self,
         *,
-        problem,
-        model,
-        seed_prompt,
-        train,
-        validation,
-        metric,
-        greater_is_better,
-        random_state,
-        report,
+        problem: str,
+        model: Any,
+        seed_prompt: str,
+        train: tuple[Example, ...],
+        validation: tuple[Example, ...],
+        metric: Metric,
+        greater_is_better: bool,
+        random_state: int,
+        report: Callable[[Event], None],
     ) -> FitResult:
+        """Optimise native instructions using training and validation examples.
+
+        Args:
+            problem: Task description used by the backend.
+            model: Model identifier, VLLM configuration or native model object.
+            seed_prompt: Initial instructions.
+            train: Examples available to the optimiser.
+            validation: Examples used to select the final prompt.
+            metric: Numeric selection metric, separate from a native loss.
+            greater_is_better: Whether higher metric values are preferred.
+            random_state: Seed for sampling and supported native optimisers.
+            report: Progress callback supplied by the experiment harness.
+
+        Returns:
+            The baseline and the best validation-selected native predictor.
+
+        Raises:
+            ImportError: The optional optimisation library is missing.
+            ValueError: Backend options are invalid or a metric is nonfinite.
+        """
         dspy = optional_import("dspy", "dspy")
         from dspy.utils.callback import BaseCallback
 
-        def lm(value):
+        def lm(value: Any) -> Any:
             if isinstance(value, VLLM):
                 return value.as_dspy()
             return dspy.LM(value) if isinstance(value, str) else value
@@ -68,7 +91,7 @@ class DSPy:
             else (self.program or dspy.Predict)(signature)
         )
 
-        def instructions(native):
+        def instructions(native: Any) -> str:
             predictors = native.named_predictors()
             if len(predictors) == 1:
                 return predictors[0][1].signature.instructions
@@ -76,15 +99,23 @@ class DSPy:
                 f"[{name}]\n{pred.signature.instructions}" for name, pred in predictors
             )
 
-        trainset = [dspy.Example(text=r.input, answer=r.target).with_inputs("text") for r in train]
+        trainset = [
+            dspy.Example(text=row.input, answer=row.target).with_inputs("text") for row in train
+        ]
         valset = [
-            dspy.Example(text=r.input, answer=r.target).with_inputs("text") for r in validation
+            dspy.Example(text=row.input, answer=row.target).with_inputs("text")
+            for row in validation
         ]
         sign = 1 if greater_is_better else -1
 
         def objective(
-            example, prediction, trace=None, pred_name=None, pred_trace=None, program_trace=None
-        ):
+            example: Any,
+            prediction: Any,
+            trace: Any = None,
+            pred_name: str | None = None,
+            pred_trace: Any = None,
+            program_trace: Any = None,
+        ) -> float:
             score = float(metric(example.answer, prediction.answer))
             if not math.isfinite(score):
                 raise ValueError("Evaluation metrics must be finite numbers")
@@ -123,12 +154,12 @@ class DSPy:
         if "seed" in compile_parameters:
             compile_options.setdefault("seed", random_state)
 
-        def wrap(native) -> Prompt:
-            def predict(text):
+        def wrap(native: Any) -> Prompt:
+            def predict(text: str) -> str:
                 with dspy.context(lm=task_lm):
                     return native(text=text).answer
 
-            def save(directory: Path):
+            def save(directory: Path) -> None:
                 directory.mkdir(parents=True, exist_ok=True)
                 native.save(directory / "program.json")
                 adapter = dspy.settings.adapter or dspy.ChatAdapter()
@@ -149,6 +180,7 @@ class DSPy:
 
             return Prompt(instructions(native), predict, save)
 
+        seed_source = "native_program" if isinstance(self.program, dspy.Module) else "seed_prompt"
         baseline = wrap(program.deepcopy())
         baseline_score = measure(baseline.predict_one, validation, metric)["score"]
         report(
@@ -159,9 +191,7 @@ class DSPy:
                 {
                     "prompt": baseline.text,
                     "phase": "baseline",
-                    "seed_source": "native_program"
-                    if isinstance(self.program, dspy.Module)
-                    else "seed_prompt",
+                    "seed_source": seed_source,
                 },
             )
         )
@@ -170,24 +200,27 @@ class DSPy:
         native_metric = supplied_instance or "metric" in self.optimizer_kwargs
 
         class Progress(BaseCallback):
-            def __init__(self):
+            def __init__(self) -> None:
                 self.pending = {}
                 self.step = 1
                 self.error = None
 
-            def on_evaluate_start(self, call_id, instance, inputs):
+            def on_evaluate_start(
+                self, call_id: str, instance: Any, inputs: dict[str, Any]
+            ) -> None:
                 rows = inputs.get("devset") or getattr(instance, "devset", ())
                 observed = {getattr(row, "text", None) for row in rows}
-                split = (
-                    "validation"
-                    if observed and observed <= validation_inputs
-                    else "train"
-                    if observed and observed <= training_inputs
-                    else "native"
-                )
+                if observed and observed <= validation_inputs:
+                    split = "validation"
+                elif observed and observed <= training_inputs:
+                    split = "train"
+                else:
+                    split = "native"
                 self.pending[call_id] = (inputs["program"].deepcopy(), split)
 
-            def on_evaluate_end(self, call_id, outputs, exception=None):
+            def on_evaluate_end(
+                self, call_id: str, outputs: Any, exception: Exception | None = None
+            ) -> None:
                 pending = self.pending.pop(call_id, None)
                 if exception is not None or pending is None:
                     return

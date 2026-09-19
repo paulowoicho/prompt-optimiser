@@ -6,7 +6,7 @@ reasoning committee. Agreement is reported separately for the two sources, becau
 different things: constructed pairs test whether the judge can tell good from degraded,
 committee pairs test whether it agrees with a slower, more careful judge on close calls.
 
-    python examples/career_coaching/calibrate_judge.py \\
+    python -m examples.career_coaching.calibrate_judge \\
         --model qwen2.5-72b-instruct-awq --base-url http://127.0.0.1:8123/v1 \\
         --small-model llama-3.1-8b-instruct --small-base-url http://127.0.0.1:8124/v1 \\
         --backend dspy --optimizer GEPA \\
@@ -16,18 +16,20 @@ GEPA is the default (``--optimizer MIPROv2`` and others are one flag away). The 
 what ``optimize_with_judge.py`` consumes.
 """
 
-from __future__ import annotations
-
 import argparse
+from datetime import datetime
+from datetime import timezone
 import json
-import sys
-from datetime import datetime, timezone
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # repo root, for qualified imports
-from examples.career_coaching import preference_data as pdm  # noqa: E402
-from prompt_optimiser import VLLM, DSPy, TextGrad, optimize  # noqa: E402
-from prompt_optimiser.tracking import ConsoleTracker, MLflowTracker, WandbTracker  # noqa: E402
+from examples.career_coaching import preference_data as pdm
+from prompt_optimiser import VLLM
+from prompt_optimiser import DSPy
+from prompt_optimiser import TextGrad
+from prompt_optimiser import optimize
+from prompt_optimiser.tracking import ConsoleTracker
+from prompt_optimiser.tracking import MLflowTracker
+from prompt_optimiser.tracking import WandbTracker
 
 GEPA_DEFAULTS = {"max_metric_calls": 400, "reflection_minibatch_size": 3, "num_threads": 4}
 SEED_JUDGE = """You are an impartial judge of career coaching. The user message is a JSON object
@@ -176,14 +178,19 @@ def main():
     parser.add_argument("--tracking-uri", default="sqlite:///runs/mlflow.db")
     args = parser.parse_args()
 
-    big = VLLM(args.model, base_url=args.base_url, max_tokens=1500, temperature=0.8, seed=args.seed)
+    big = VLLM(
+        args.model, base_url=args.base_url, max_tokens=1500, temperature=0.8, seed=args.seed
+    )
     strong = VLLM(args.model, base_url=args.base_url, max_tokens=700, seed=args.seed)
     small = VLLM(args.small_model, base_url=args.small_base_url, max_tokens=700, seed=args.seed)
     committee_seeds = list(range(args.committee_samples))
     if not committee_seeds:
         raise ValueError("--committee-samples must be positive")
     committee_config = {
-        "model": args.model, "base_url": args.base_url, "max_tokens": 600, "temperature": 0.7,
+        "model": args.model,
+        "base_url": args.base_url,
+        "max_tokens": 600,
+        "temperature": 0.7,
     }
     committee = pdm.committee_calls(
         lambda seed: VLLM(**committee_config, seed=seed).as_litellm(), seeds=committee_seeds

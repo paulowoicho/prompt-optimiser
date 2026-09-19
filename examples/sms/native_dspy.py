@@ -1,23 +1,15 @@
 """Standalone DSPy reference: native Predict -> MIPROv2.compile -> native prediction."""
 
-import sys
-from pathlib import Path
-
 import dspy
+from dspy.utils.callback import BaseCallback
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # repo root, for qualified imports
-
-from dspy.utils.callback import BaseCallback  # noqa: E402
-
-from examples.sms.common import (  # noqa: E402
-    PROBLEM,
-    NativeRun,
-    optimizer_model,
-    setup,
-    target_model,
-)
-from prompt_optimiser.metrics import exact_match  # noqa: E402
-from prompt_optimiser.vllm import VLLM  # noqa: E402
+from examples.sms.common import PROBLEM
+from examples.sms.common import NativeRun
+from examples.sms.common import optimizer_model
+from examples.sms.common import setup
+from examples.sms.common import target_model
+from prompt_optimiser.metrics import exact_match
+from prompt_optimiser.vllm import VLLM
 
 
 def main():

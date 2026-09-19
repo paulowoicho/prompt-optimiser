@@ -1,13 +1,11 @@
 """UCI SMS Spam Collection loader and class-balanced disjoint splits."""
 
-from __future__ import annotations
-
 import hashlib
 import io
+from pathlib import Path
 import random
 import urllib.request
 import zipfile
-from pathlib import Path
 
 from prompt_optimiser import Example
 

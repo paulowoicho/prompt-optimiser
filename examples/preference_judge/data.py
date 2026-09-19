@@ -14,13 +14,12 @@ Two things matter for "proper ML practice" here and both live in this file:
    position A is penalised in training and caught in evaluation.
 """
 
-from __future__ import annotations
-
-import json
-import random
-from collections import Counter, defaultdict
+from collections import Counter
+from collections import defaultdict
 from dataclasses import dataclass
+import json
 from pathlib import Path
+import random
 
 from prompt_optimiser import Example
 
@@ -29,7 +28,14 @@ FILE = "data/human-00000-of-00001-25f4910818759289.parquet"
 LABELS = ("A_BETTER", "B_BETTER", "TIE")
 SWAP = {"A_BETTER": "B_BETTER", "B_BETTER": "A_BETTER", "TIE": "TIE"}
 CATEGORIES = (
-    "writing", "roleplay", "reasoning", "math", "coding", "extraction", "stem", "humanities"
+    "writing",
+    "roleplay",
+    "reasoning",
+    "math",
+    "coding",
+    "extraction",
+    "stem",
+    "humanities",
 )
 # Questions per category in each split; 3+1+1+2+1+2 = 10 = every MT-bench category.
 SPLIT_SIZES = {
@@ -63,8 +69,8 @@ class Pair:
 
 def load_pairs(cache_dir: Path = Path("runs/datasets/mt_bench")) -> list[Pair]:
     """Download once, then aggregate. See ``pairs_from_frame`` for the rules."""
-    import pandas as pd
     from huggingface_hub import hf_hub_download
+    import pandas as pd
 
     path = hf_hub_download(REPO, FILE, repo_type="dataset", cache_dir=str(cache_dir))
     return pairs_from_frame(pd.read_parquet(path))

@@ -1,16 +1,19 @@
 """Dataset and reporting shared by the two standalone native reference scripts."""
 
-from __future__ import annotations
-
 import argparse
+from datetime import datetime
+from datetime import timezone
 import hashlib
 import json
-from datetime import datetime, timezone
 from pathlib import Path
 
-from examples.sms.data import load_dataset, make_splits
+from examples.sms.data import load_dataset
+from examples.sms.data import make_splits
 from prompt_optimiser.experiment import measure
-from prompt_optimiser.tracking import ConsoleTracker, JSONLTracker, MLflowTracker, WandbTracker
+from prompt_optimiser.tracking import ConsoleTracker
+from prompt_optimiser.tracking import JSONLTracker
+from prompt_optimiser.tracking import MLflowTracker
+from prompt_optimiser.tracking import WandbTracker
 from prompt_optimiser.types import Event
 from prompt_optimiser.vllm import VLLM
 
@@ -28,7 +31,9 @@ def setup(name, add_arguments=None):
     parser.add_argument("--base-url", help="vLLM OpenAI-compatible URL ending in /v1")
     parser.add_argument("--api-key-env", default="VLLM_API_KEY")
     parser.add_argument("--max-tokens", type=int, default=2048)
-    parser.add_argument("--optimizer-model", help="Proposal/critic model; defaults to target model")
+    parser.add_argument(
+        "--optimizer-model", help="Proposal/critic model; defaults to target model"
+    )
     parser.add_argument("--train-per-class", type=int, default=20)
     parser.add_argument("--eval-per-class", type=int, default=20)
     parser.add_argument("--seed", type=int, default=42)
@@ -142,7 +147,8 @@ def target_model(args):
             args.model,
             base_url=args.base_url,
             api_key_env=args.api_key_env,
-            max_tokens=args.max_tokens, seed=args.seed,
+            max_tokens=args.max_tokens,
+            seed=args.seed,
         )
         if args.base_url
         else args.model
@@ -157,7 +163,8 @@ def optimizer_model(args):
             args.optimizer_model,
             base_url=args.base_url,
             api_key_env=args.api_key_env,
-            max_tokens=args.max_tokens, seed=args.seed,
+            max_tokens=args.max_tokens,
+            seed=args.seed,
         )
         if args.base_url
         else args.optimizer_model

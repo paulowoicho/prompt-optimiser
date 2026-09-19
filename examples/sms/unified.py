@@ -1,29 +1,29 @@
 """One task, one dataset, any optimiser: the experimenter picks the tool and its algorithm.
 
-Examples (servers as in docs/VLLM.md):
+Examples, against a served model:
 
   # DSPy, GEPA (the example default)
-  python examples/sms/unified.py --backend dspy --optimizer GEPA \
+  python -m examples.sms.unified --backend dspy --optimizer GEPA \
       --optimizer-kwargs '{"max_metric_calls": 400, "reflection_minibatch_size": 3}' \
       --model llama-3.1-8b-instruct --base-url http://127.0.0.1:8124/v1
 
   # DSPy, MIPROv2
-  python examples/sms/unified.py --backend dspy --optimizer MIPROv2 \
+  python -m examples.sms.unified --backend dspy --optimizer MIPROv2 \
       --optimizer-kwargs '{"auto": "light"}' \
       --model llama-3.1-8b-instruct --base-url http://127.0.0.1:8124/v1
 
   # DSPy, COPRO
-  python examples/sms/unified.py --backend dspy --optimizer COPRO \
+  python -m examples.sms.unified --backend dspy --optimizer COPRO \
       --optimizer-kwargs '{"breadth": 4, "depth": 2}' \
       --model llama-3.1-8b-instruct --base-url http://127.0.0.1:8124/v1
 
   # DSPy, bootstrapped demonstrations with random search
-  python examples/sms/unified.py --backend dspy --optimizer BootstrapFewShotWithRandomSearch \
+  python -m examples.sms.unified --backend dspy --optimizer BootstrapFewShotWithRandomSearch \
       --optimizer-kwargs '{"max_bootstrapped_demos": 4, "num_candidate_programs": 4}' \
       --model llama-3.1-8b-instruct --base-url http://127.0.0.1:8124/v1
 
   # TextGrad, textual gradient descent with gradient memory and a custom critique
-  python examples/sms/unified.py --backend textgrad --optimizer TextualGradientDescent \
+  python -m examples.sms.unified --backend textgrad --optimizer TextualGradientDescent \
       --optimizer-kwargs '{"gradient_memory": 2}' \
       --steps 3 --batch-size 4 --loss "Judge only whether the label is correct." \
       --model llama-3.1-8b-instruct --base-url http://127.0.0.1:8124/v1
@@ -32,19 +32,15 @@ Add --tracker mlflow --tracking-uri sqlite:///runs/mlflow.db to see it at http:/
 """
 
 import json
-import sys
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # repo root, for qualified imports
-
-from examples.sms.common import (  # noqa: E402
-    PROBLEM,
-    optimizer_model,
-    setup,
-    target_model,
-    trackers_for,
-)
-from prompt_optimiser import DSPy, TextGrad, optimize  # noqa: E402
+from examples.sms.common import PROBLEM
+from examples.sms.common import optimizer_model
+from examples.sms.common import setup
+from examples.sms.common import target_model
+from examples.sms.common import trackers_for
+from prompt_optimiser import DSPy
+from prompt_optimiser import TextGrad
+from prompt_optimiser import optimize
 
 GEPA_DEFAULTS = {"max_metric_calls": 400, "reflection_minibatch_size": 3}
 
@@ -76,7 +72,9 @@ def main():
     args, (train, validation, test), metadata = setup(
         "unified",
         lambda parser: (
-            parser.add_argument("--optimizer", help="Native class (default: GEPA or TextGrad TGD)"),
+            parser.add_argument(
+                "--optimizer", help="Native class (default: GEPA or TextGrad TGD)"
+            ),
             parser.add_argument(
                 "--optimizer-kwargs", default="{}", help="JSON passed to the optimiser constructor"
             ),
@@ -85,7 +83,10 @@ def main():
             ),
             parser.add_argument("--loss", help="TextGrad critique instruction"),
             parser.add_argument(
-                "--constraint", action="append", default=[], help="TextGrad constraint (repeatable)"
+                "--constraint",
+                action="append",
+                default=[],
+                help="TextGrad constraint (repeatable)",
             ),
         ),
     )

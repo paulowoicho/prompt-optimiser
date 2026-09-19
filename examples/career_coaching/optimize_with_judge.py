@@ -7,7 +7,7 @@ incumbent is the seed prompt's own answer, rendered the way the backend renders 
 baseline sits at 0.5. ``--judge baseline`` uses the uncalibrated judge from the same run for
 contrast.
 
-    python examples/career_coaching/optimize_with_judge.py \\
+    python -m examples.career_coaching.optimize_with_judge \\
         --judge-run runs/coaching_preference/stage1-gepa --judge best \\
         --judge-model qwen2.5-72b-instruct-awq --judge-base-url http://127.0.0.1:8123/v1 \\
         --model llama-3.1-8b-instruct --base-url http://127.0.0.1:8124/v1 \\
@@ -15,21 +15,25 @@ contrast.
         --tracker mlflow --output runs/coaching_preference/stage2-gepa-best-judge
 """
 
-from __future__ import annotations
-
 import argparse
-import json
-import sys
 from collections import Counter
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from dataclasses import dataclass
+from dataclasses import field
+from datetime import datetime
+from datetime import timezone
+import json
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # repo root, for qualified imports
-from examples.career_coaching import preference_data as pdm  # noqa: E402
-from prompt_optimiser import VLLM, DSPy, Example, TextGrad, optimize  # noqa: E402
-from prompt_optimiser.tracking import ConsoleTracker, MLflowTracker, WandbTracker  # noqa: E402
+from examples.career_coaching import preference_data as pdm
+from prompt_optimiser import VLLM
+from prompt_optimiser import DSPy
+from prompt_optimiser import Example
+from prompt_optimiser import TextGrad
+from prompt_optimiser import optimize
+from prompt_optimiser.tracking import ConsoleTracker
+from prompt_optimiser.tracking import MLflowTracker
+from prompt_optimiser.tracking import WandbTracker
 
 GEPA_DEFAULTS = {"max_metric_calls": 400, "reflection_minibatch_size": 3, "num_threads": 4}
 PREFERENCE = {"A_BETTER": 1.0, "B_BETTER": 0.0, "TIE": 0.5}

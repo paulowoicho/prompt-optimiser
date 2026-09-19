@@ -5,7 +5,7 @@ The judge is reloaded as the exact predictor stage 1 scored: for DSPy that is ``
 reloads the same run's unoptimised judge instead, so the effect of calibration is visible on
 identical data. The response questions are disjoint from every judge split.
 
-    python examples/preference_judge/stage2_responses.py \\
+    python -m examples.preference_judge.stage2_responses \\
         --judge-run runs/preference_judge/stage1-gepa \\
         --judge-model qwen2.5-72b-instruct-awq --judge-base-url http://127.0.0.1:8123/v1 \\
         --model llama-3.1-8b-instruct --base-url http://127.0.0.1:8124/v1 \\
@@ -19,27 +19,29 @@ ties or disagreement between orderings. The incumbent is rendered the same way t
 candidates (see ``seed_responder``), so the baseline sits near 0.5 up to serving nondeterminism.
 """
 
-from __future__ import annotations
-
 import argparse
-import json
-import sys
 from collections import Counter
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from dataclasses import dataclass
+from dataclasses import field
+from datetime import datetime
+from datetime import timezone
+import json
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # repo root, for qualified imports
-from examples.preference_judge.data import (  # noqa: E402
-    LABELS,
-    SPLIT_SIZES,
-    SWAP,
-    load_pairs,
-    questions,
-)
-from prompt_optimiser import VLLM, DSPy, Example, TextGrad, optimize  # noqa: E402
-from prompt_optimiser.tracking import ConsoleTracker, MLflowTracker, WandbTracker  # noqa: E402
+from examples.preference_judge.data import LABELS
+from examples.preference_judge.data import SPLIT_SIZES
+from examples.preference_judge.data import SWAP
+from examples.preference_judge.data import load_pairs
+from examples.preference_judge.data import questions
+from prompt_optimiser import VLLM
+from prompt_optimiser import DSPy
+from prompt_optimiser import Example
+from prompt_optimiser import TextGrad
+from prompt_optimiser import optimize
+from prompt_optimiser.tracking import ConsoleTracker
+from prompt_optimiser.tracking import MLflowTracker
+from prompt_optimiser.tracking import WandbTracker
 
 # GEPA is the example default: reflective instruction evolution, budgeted by metric calls.
 # Any other DSPy teleprompter is one --optimizer flag away, e.g. --optimizer MIPROv2.

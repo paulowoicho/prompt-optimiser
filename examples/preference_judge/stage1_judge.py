@@ -5,7 +5,7 @@ responses, its output is one of A_BETTER, B_BETTER, TIE, and the metric is agree
 aggregated human label. Both orderings of every pair are in every split, so position bias costs
 points. Nothing here is specific to the library beyond ``optimize()``.
 
-    python examples/preference_judge/stage1_judge.py \\
+    python -m examples.preference_judge.stage1_judge \\
         --model qwen2.5-72b-instruct-awq --base-url http://127.0.0.1:8123/v1 \\
         --backend dspy --optimizer GEPA \\
         --optimizer-kwargs '{"max_metric_calls": 400, "reflection_minibatch_size": 3}' \\
@@ -16,25 +16,25 @@ The run directory is what stage 2 consumes: ``best/program.json`` (DSPy) or ``be
 and position consistency on the held-out judge-test questions.
 """
 
-from __future__ import annotations
-
 import argparse
+from datetime import datetime
+from datetime import timezone
 import json
-import sys
-from datetime import datetime, timezone
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # repo root, for qualified imports
-from examples.preference_judge.data import (  # noqa: E402
-    LABELS,
-    SWAP,
-    judge_examples,
-    load_pairs,
-    split_questions,
-    summary,
-)
-from prompt_optimiser import VLLM, DSPy, TextGrad, optimize  # noqa: E402
-from prompt_optimiser.tracking import ConsoleTracker, MLflowTracker, WandbTracker  # noqa: E402
+from examples.preference_judge.data import LABELS
+from examples.preference_judge.data import SWAP
+from examples.preference_judge.data import judge_examples
+from examples.preference_judge.data import load_pairs
+from examples.preference_judge.data import split_questions
+from examples.preference_judge.data import summary
+from prompt_optimiser import VLLM
+from prompt_optimiser import DSPy
+from prompt_optimiser import TextGrad
+from prompt_optimiser import optimize
+from prompt_optimiser.tracking import ConsoleTracker
+from prompt_optimiser.tracking import MLflowTracker
+from prompt_optimiser.tracking import WandbTracker
 
 # GEPA is the example default: reflective instruction evolution, budgeted by metric calls.
 # Any other DSPy teleprompter is one --optimizer flag away, e.g. --optimizer MIPROv2.
@@ -125,7 +125,8 @@ def consistency(prediction_file: Path) -> dict:
     return {
         "pairs": len(pairs),
         "valid_label_rate": sum(p in LABELS for p in predicted) / len(predicted)
-        if predicted else None,
+        if predicted
+        else None,
         "position_consistency": consistent / len(pairs) if pairs else None,
         "predicted_label_distribution": {label: predicted.count(label) for label in LABELS},
         "invalid_outputs": sum(1 for p in predicted if p not in LABELS),

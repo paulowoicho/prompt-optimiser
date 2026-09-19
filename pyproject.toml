@@ -23,10 +23,22 @@ packages = ["prompt_optimiser"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 
 [tool.ruff]
 target-version = "py310"
-line-length = 100
+line-length = 99
+src = ["prompt_optimiser"]
+include = ["pyproject.toml", "prompt_optimiser/**/*.py", "examples/**/*.py", "tests/**/*.py"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["prompt_optimiser", "examples"]
+force-sort-within-sections = true
+force-single-line = true
+single-line-exclusions = ["typing", "collections.abc"]
+
+[tool.ruff.lint.per-file-ignores]
+"prompt_optimiser/__init__.py" = ["F401"]

@@ -1,10 +1,9 @@
 """Small, dependency-free public contracts."""
 
-from __future__ import annotations
-
 from collections.abc import Callable
-from dataclasses import asdict, dataclass
-from typing import Any, Protocol
+from dataclasses import asdict
+from dataclasses import dataclass
+from typing import Any, Protocol, runtime_checkable
 
 Metric = Callable[[str, str], float]
 """metric(expected, predicted) -> finite float; the objective used for selection and reporting."""
@@ -12,6 +11,13 @@ Metric = Callable[[str, str], float]
 
 @dataclass(frozen=True)
 class Example:
+    """One supervised input and reference.
+
+    Attributes:
+        input: Text passed to the predictor.
+        target: Reference passed to the evaluation metric.
+    """
+
     input: str
     target: str
 
@@ -22,7 +28,14 @@ class Example:
 
 @dataclass(frozen=True)
 class Event:
-    """One progress record: start, candidate, artifact, finish or close."""
+    """One progress record emitted by an experiment or backend.
+
+    Attributes:
+        kind: Event name, such as start, candidate, artifact, finish or close.
+        step: Backend step or candidate index.
+        metrics: Named numeric measurements.
+        data: JSON-serialisable settings, prompt state or artifact paths.
+    """
 
     kind: str
     step: int
@@ -33,7 +46,22 @@ class Event:
         return asdict(self)
 
 
+@runtime_checkable
 class Tracker(Protocol):
-    def log(self, event: Event) -> None: ...
+    """Receive experiment events and release resources when the run ends."""
 
-    def close(self, status: str) -> None: ...
+    def log(self, event: Event) -> None:
+        """Record an event.
+
+        Args:
+            event: Progress, metrics or artifact location to retain.
+        """
+        ...
+
+    def close(self, status: str) -> None:
+        """Finish the run and release tracker resources.
+
+        Args:
+            status: Either "finished" or "failed".
+        """
+        ...

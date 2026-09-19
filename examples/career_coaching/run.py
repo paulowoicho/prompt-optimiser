@@ -7,7 +7,7 @@ seed prompt with itself, so it sits near 0.5; it is not exactly 0.5 because the 
 the seed its own way (DSPy adds field markers) and serving is not perfectly deterministic. How
 far the baseline is from 0.5 is the size of that formatting and noise effect.
 
-    python examples/career_coaching/run.py \
+    python -m examples.career_coaching.run \
         --model llama-3.1-8b-instruct --base-url http://127.0.0.1:8124/v1 \
         --judge-model qwen2.5-72b-instruct-awq --judge-base-url http://127.0.0.1:8123/v1 \
         --backend dspy --optimizer GEPA \
@@ -18,25 +18,26 @@ GEPA is the default; swap --optimizer MIPROv2 (with its kwargs) or --backend tex
 with a different, larger model than the one being optimised, or you are measuring self-preference.
 """
 
-from __future__ import annotations
-
 import argparse
+from datetime import datetime
+from datetime import timezone
 import json
-import sys
-from datetime import datetime, timezone
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # repo root, for qualified imports
-from examples.career_coaching.data import splits  # noqa: E402
-from examples.career_coaching.judge import (  # noqa: E402
-    CRITERIA,
-    VERDICT_SCHEMA,
-    WHITESPACE,
-    PairwiseJudge,
-)
-from examples.career_coaching.loss import make_coaching_loss  # noqa: E402
-from prompt_optimiser import VLLM, DSPy, Example, TextGrad, optimize  # noqa: E402
-from prompt_optimiser.tracking import ConsoleTracker, MLflowTracker, WandbTracker  # noqa: E402
+from examples.career_coaching.data import splits
+from examples.career_coaching.judge import CRITERIA
+from examples.career_coaching.judge import VERDICT_SCHEMA
+from examples.career_coaching.judge import WHITESPACE
+from examples.career_coaching.judge import PairwiseJudge
+from examples.career_coaching.loss import make_coaching_loss
+from prompt_optimiser import VLLM
+from prompt_optimiser import DSPy
+from prompt_optimiser import Example
+from prompt_optimiser import TextGrad
+from prompt_optimiser import optimize
+from prompt_optimiser.tracking import ConsoleTracker
+from prompt_optimiser.tracking import MLflowTracker
+from prompt_optimiser.tracking import WandbTracker
 
 # GEPA is the example default: reflective instruction evolution, budgeted by metric calls.
 # Any other DSPy teleprompter is one --optimizer flag away, e.g. --optimizer MIPROv2.
@@ -127,7 +128,9 @@ def main():
     parser.add_argument("--compile-kwargs", default="{}")
     parser.add_argument("--steps", type=int, default=3)
     parser.add_argument("--batch-size", type=int, default=4)
-    parser.add_argument("--loss", help="TextGrad critique criteria (default: the judge's CRITERIA)")
+    parser.add_argument(
+        "--loss", help="TextGrad critique criteria (default: the judge's CRITERIA)"
+    )
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--seed-prompt", default=PROBLEM)
     parser.add_argument(
