@@ -42,9 +42,12 @@ the algorithm; the experimenter does.
 
 ## In progress
 
-- Shared-board monitoring with Claude. All current implementation and experiment reviews are
-  complete. The 1500-call feedback run tied on validation agreement and had lower validation
-  position consistency, so the selected score-only GEPA judge is unchanged.
+- Coaching judge calibration on 160 synthetic questions: data construction, seeded committee
+  labels, disjoint judge/response splits, saved judge reload and tracker reports are implemented
+  and reviewed. Live committee labelling, calibration and response comparisons are in progress.
+- Private GitHub repository created and the reviewed commits pushed to the user's account.
+- Shared-board coordination with Claude remains active. The earlier MT-Bench 1500-call feedback
+  run tied validation agreement and lost the consistency tie-break; its selected judge is unchanged.
 
 ## Later
 

@@ -8,7 +8,7 @@ examples, so adding a new one cannot break an existing one. Run them from the re
 | Folder | Task | Metric | Shows |
 |---|---|---|---|
 | [sms/](sms/) | UCI SMS spam, ham/spam labels | exact match | DSPy and TextGrad through one interface; the native scripts they were derived from; a multi-configuration sweep |
-| [career_coaching/](career_coaching/) | open-ended coaching answers, no gold labels | a pairwise AI judge defined in the example | writing your own metric; tie-adjusted preference against the seed prompt; judging with a different model than the one optimised |
+| [career_coaching/](career_coaching/) | open-ended coaching answers, no gold labels | part one: a hand-written pairwise AI judge; part two: the same judge calibrated on synthetic preference labels | writing your own metric; why an uncalibrated judge stalls an optimiser; synthetic preference data with explicit label provenance; calibrate, then optimise |
 | [custom_backend/](custom_backend/) | tiny inline sentiment task | exact match | a complete third optimiser backend in about thirty lines |
 | [preference_judge/](preference_judge/) | MT-bench human preference votes (CC-BY-4.0) | stage 1: agreement with human labels; stage 2: the optimised judge | calibrating an AI judge on human data before using it as a metric; question-level disjoint splits between the two stages |
 
