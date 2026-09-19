@@ -1,28 +1,27 @@
 # Examples
 
-One folder per example. Each is self-contained: its own data, its own metric if it needs one, and a
-`run.py` or single script as the entry point. Nothing in here is imported by the library or by other
-examples, so adding a new one cannot break an existing one. Run them from the repo root with the
-`.venv` interpreter and a served model (see [../docs/VLLM.md](../docs/VLLM.md)).
+One folder per experiment. Each is self-contained, with its own data and, where it needs one,
+its own metric; nothing here is imported by the library. Run them as modules from the
+repository root against any OpenAI-compatible model endpoint:
 
-| Folder | Task | Metric | Shows |
-|---|---|---|---|
-| [sms/](sms/) | UCI SMS spam, ham/spam labels | exact match | DSPy and TextGrad through one interface; the native scripts they were derived from; a multi-configuration sweep |
-| [career_coaching/](career_coaching/) | open-ended coaching answers, no gold labels | part one: a hand-written pairwise AI judge; part two: the same judge calibrated on synthetic preference labels | writing your own metric; why an uncalibrated judge stalls an optimiser; synthetic preference data with explicit label provenance; calibrate, then optimise |
-| [custom_backend/](custom_backend/) | tiny inline sentiment task | exact match | a complete third optimiser backend in about thirty lines |
-| [preference_judge/](preference_judge/) | MT-bench human preference votes (CC-BY-4.0) | stage 1: agreement with human labels; stage 2: the optimised judge | calibrating an AI judge on human data before using it as a metric; question-level disjoint splits between the two stages |
+```bash
+python -m examples.sms.unified --help
+```
 
-DSPy examples default to GEPA with an explicit metric-call budget. Select another native
-algorithm with `--optimizer` and its constructor options with `--optimizer-kwargs`; TextGrad
-remains available through `--backend textgrad`. The native SMS reference scripts show their
-original single-tool algorithms.
+- `sms/` — UCI SMS spam with exact match. `unified.py` runs any DSPy or TextGrad optimiser
+  through one interface, `sweep.py` runs several in a row, and the two `native_*.py` scripts
+  are the single-tool originals the adapters were derived from.
+- `custom_backend/` — a third optimiser in thirty lines, on a tiny inline sentiment task.
+- `career_coaching/` — an AI judge as the metric on open-ended answers, then the same judge
+  calibrated on synthetic preference labels.
+- `preference_judge/` — a judge calibrated on MT-bench human votes, then used to optimise
+  responses, with question-level disjoint splits.
 
-## Adding an example
+DSPy scripts default to GEPA with an explicit metric-call budget; `--optimizer` and
+`--optimizer-kwargs` select any other native algorithm, and `--backend textgrad` switches tool.
 
-Make a folder, put the data and any task-specific metric in it, and call `optimize(...)` from a
-`run.py`. Import sibling modules by qualified name (`from examples.<folder>.data import ...`)
-after putting the repo root on `sys.path`, as the existing scripts do; plain names like `data`
-would collide when two examples are imported in one process. A metric is any
-`metric(expected, predicted) -> float`; if it
-needs more context than the target string (a judge that wants the question, say), give it that
-context when you construct it, as `career_coaching/judge.py` does. Add a row to the table above.
+To add one: make a folder, put the data and any task-specific metric in it, call
+`optimize(...)` from a `run.py`, and import siblings by full name
+(`from examples.<folder>.data import ...`). A metric that needs more than the target string,
+such as a judge that wants the question, gets that context when it is constructed, as
+`career_coaching/judge.py` does.

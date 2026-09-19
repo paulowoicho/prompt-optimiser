@@ -16,3 +16,12 @@ logs/
 collaboration/
 COLLABORATION.md
 BOARD.md
+
+# planning and machine-specific notes live on the board, not in the repo
+PLAN.md
+docs/
+
+# local working guidance for agents, not part of the repo
+STYLEGUIDE.md
+CLAUDE.md
+Makefile
